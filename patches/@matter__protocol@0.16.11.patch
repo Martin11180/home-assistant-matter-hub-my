@@ -30,6 +30,28 @@ index a120669cfd13ebdaf635fc75ad9d232b95703fe7..f0482d7cb39500785832802b8d509b7a
        signatureAlgorithm: (0, import_types.TlvField)(2, import_types.TlvUInt8),
        issuer: (0, import_types.TlvField)(
          3,
+diff --git a/dist/cjs/protocol/DeviceAdvertiser.js b/dist/cjs/protocol/DeviceAdvertiser.js
+index eba2665e872fe89e13ef175fd30d1732c530ecc5..0b699739ae7a05f7a8da3a919a7ed75fe6df5988 100644
+--- a/dist/cjs/protocol/DeviceAdvertiser.js
++++ b/dist/cjs/protocol/DeviceAdvertiser.js
+@@ -105,10 +105,15 @@ class DeviceAdvertiser {
+       this.#advertiseFabric(session.associatedFabric, "retransmit");
+     });
+     this.#observers.on(this.#context.sessions.subscriptionsChanged, (session, subscription) => {
+-      if (this.#isOperational && subscription.isCanceledByPeer && session.fabric !== void 0) {
+-        logger.debug(`Subscription canceled by peer, re-announce`);
++      if (!this.#isOperational || session.fabric === void 0) {
++        return;
++      }
++      if (subscription.isCanceledByPeer) {
++        logger.debug(`Subscription canceled (reason=peer) -> trigger re-announce`);
+         this.#advertiseFabric(session.fabric, "reconnect");
++        return;
+       }
++      logger.debug(`Subscription canceled (reason=timeout/internal) -> skip re-announce`);
+     });
+   }
+   toString() {
 diff --git a/dist/esm/certificate/kinds/OperationalBase.js b/dist/esm/certificate/kinds/OperationalBase.js
 index 59ee05a68e2e26fc19d68587d1476031ac6d46b0..541cee8e40605f312a27f49e9ba5e2311eb61ec9 100644
 --- a/dist/esm/certificate/kinds/OperationalBase.js
@@ -62,3 +84,49 @@ index 41a546f5cb99b2bcbb16f978173eff602fdbdd81..1182274d2c0781ab7332e8e50327226d
        signatureAlgorithm: TlvField(2, TlvUInt8),
        issuer: TlvField(
          3,
+diff --git a/dist/esm/protocol/DeviceAdvertiser.js b/dist/esm/protocol/DeviceAdvertiser.js
+index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..8c92ec15b6aea4e52b659ad4ec73b6dfbbbe4787 100644
+--- a/dist/esm/protocol/DeviceAdvertiser.js
++++ b/dist/esm/protocol/DeviceAdvertiser.js
+@@ -82,10 +82,15 @@ class DeviceAdvertiser {
+       this.#advertiseFabric(session.associatedFabric, "retransmit");
+     });
+     this.#observers.on(this.#context.sessions.subscriptionsChanged, (session, subscription) => {
+-      if (this.#isOperational && subscription.isCanceledByPeer && session.fabric !== void 0) {
+-        logger.debug(`Subscription canceled by peer, re-announce`);
++      if (!this.#isOperational || session.fabric === void 0) {
++        return;
++      }
++      if (subscription.isCanceledByPeer) {
++        logger.debug(`Subscription canceled (reason=peer) -> trigger re-announce`);
+         this.#advertiseFabric(session.fabric, "reconnect");
++        return;
+       }
++      logger.debug(`Subscription canceled (reason=timeout/internal) -> skip re-announce`);
+     });
+   }
+   toString() {
+diff --git a/src/protocol/DeviceAdvertiser.ts b/src/protocol/DeviceAdvertiser.ts
+index 41963d741672344dd7314fb212c9264e1c06d23d..cfe91f8368b913962ead39090214f8ffe41efac6 100644
+--- a/src/protocol/DeviceAdvertiser.ts
++++ b/src/protocol/DeviceAdvertiser.ts
+@@ -135,10 +135,17 @@ export class DeviceAdvertiser {
+         });
+ 
+         this.#observers.on(this.#context.sessions.subscriptionsChanged, (session, subscription) => {
+-            if (this.#isOperational && subscription.isCanceledByPeer && session.fabric !== undefined) {
+-                logger.debug(`Subscription canceled by peer, re-announce`);
++            if (!this.#isOperational || session.fabric === undefined) {
++                return;
++            }
++
++            if (subscription.isCanceledByPeer) {
++                logger.debug(`Subscription canceled (reason=peer) -> trigger re-announce`);
+                 this.#advertiseFabric(session.fabric, "reconnect");
++                return;
+             }
++
++            logger.debug(`Subscription canceled (reason=timeout/internal) -> skip re-announce`);
+         });
+     }
+ 
