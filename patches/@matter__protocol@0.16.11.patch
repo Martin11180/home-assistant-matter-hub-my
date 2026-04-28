@@ -44,11 +44,11 @@ index eba2665e872fe89e13ef175fd30d1732c530ecc5..0b699739ae7a05f7a8da3a919a7ed75f
 +        return;
 +      }
 +      if (subscription.isCanceledByPeer) {
-+        logger.debug(`Subscription canceled (reason=peer) -> trigger re-announce`);
++        logger.debug(`Subscription canceled (reason=peer) → trigger re-announce`);
          this.#advertiseFabric(session.fabric, "reconnect");
 +        return;
        }
-+      logger.debug(`Subscription canceled (reason=timeout/internal) -> skip re-announce`);
++      logger.debug(`Subscription canceled (reason=timeout) → skip re-announce`);
      });
    }
    toString() {
@@ -98,11 +98,11 @@ index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..8c92ec15b6aea4e52b659ad4ec73b6df
 +        return;
 +      }
 +      if (subscription.isCanceledByPeer) {
-+        logger.debug(`Subscription canceled (reason=peer) -> trigger re-announce`);
++        logger.debug(`Subscription canceled (reason=peer) → trigger re-announce`);
          this.#advertiseFabric(session.fabric, "reconnect");
 +        return;
        }
-+      logger.debug(`Subscription canceled (reason=timeout/internal) -> skip re-announce`);
++      logger.debug(`Subscription canceled (reason=timeout) → skip re-announce`);
      });
    }
    toString() {
@@ -121,12 +121,12 @@ index 41963d741672344dd7314fb212c9264e1c06d23d..cfe91f8368b913962ead39090214f8ff
 +            }
 +
 +            if (subscription.isCanceledByPeer) {
-+                logger.debug(`Subscription canceled (reason=peer) -> trigger re-announce`);
++                logger.debug(`Subscription canceled (reason=peer) → trigger re-announce`);
                  this.#advertiseFabric(session.fabric, "reconnect");
 +                return;
              }
 +
-+            logger.debug(`Subscription canceled (reason=timeout/internal) -> skip re-announce`);
++            logger.debug(`Subscription canceled (reason=timeout) → skip re-announce`);
          });
      }
  
