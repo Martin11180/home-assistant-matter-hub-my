@@ -8,8 +8,8 @@
     "home-assistant-matter-hub": "./dist/backend/cli.js"
   },
   "author": {
-    "name": "riddix",
-    "url": "https://github.com/riddix"
+    "name": "Martin11180",
+    "url": "https://github.com/Martin11180"
   },
   "keywords": [
     "home-assistant",
@@ -30,10 +30,10 @@
     "smart-home"
   ],
   "bugs": {
-    "url": "https://github.com/riddix/home-assistant-matter-hub/issues"
+    "url": "https://github.com/Martin11180/home-assistant-matter-hub-my/issues"
   },
   "license": "Apache-2.0",
-  "repository": "github:riddix/home-assistant-matter-hub",
+  "repository": "github:Martin11180/home-assistant-matter-hub-my",
   "scripts": {
     "cleanup": "npx rimraf node_modules dist pack LICENSE README.md",
     "build": "node build.js",
