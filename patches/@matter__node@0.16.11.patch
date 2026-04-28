@@ -1,0 +1,41 @@
+diff --git a/dist/cjs/node/server/ServerSubscription.js b/dist/cjs/node/server/ServerSubscription.js
+index 9c1aa6236867a1e021828704dcd3150ab99b2240..b900ca32582da46d3e379815da99e9c7d4bf9353 100644
+--- a/dist/cjs/node/server/ServerSubscription.js
++++ b/dist/cjs/node/server/ServerSubscription.js
+@@ -385,7 +385,6 @@ class ServerSubscription {
+               var _stack2 = [];
+               try {
+                 const _messaging = __using(_stack2, updating?.join("canceling"));
+-                this.#isCanceledByPeer = true;
+                 await this.#cancel();
+                 break;
+               } catch (_2) {
+diff --git a/dist/esm/node/server/ServerSubscription.js b/dist/esm/node/server/ServerSubscription.js
+index 3da9287e7aa8111af3a07e234f0415131eb06304..cc2c3438a021f91ba9c74e65c8b0dd283072c7da 100644
+--- a/dist/esm/node/server/ServerSubscription.js
++++ b/dist/esm/node/server/ServerSubscription.js
+@@ -388,7 +388,6 @@ class ServerSubscription {
+               var _stack2 = [];
+               try {
+                 const _messaging = __using(_stack2, updating?.join("canceling"));
+-                this.#isCanceledByPeer = true;
+                 await this.#cancel();
+                 break;
+               } catch (_2) {
+diff --git a/src/node/server/ServerSubscription.ts b/src/node/server/ServerSubscription.ts
+index 13953b5a8c9f68e60942e0bebf563eb9ea866d9f..7a8d391b492c3b46a25f8fe9d04222b9b69bf4ea 100644
+--- a/src/node/server/ServerSubscription.ts
++++ b/src/node/server/ServerSubscription.ts
+@@ -488,10 +488,9 @@ export class ServerSubscription implements Subscription {
+                         error instanceof NetworkError ||
+                         error instanceof SessionClosedError
+                     ) {
+-                        // Let's consider this subscription as dead and wait for a reconnect.  We handle as if the
+-                        // controller cancelled
++                        // Treat repeated local send failures as an internal timeout, not as a controller cancel.
++                        // Peer-initiated cancels still set #isCanceledByPeer and trigger operational reannounce.
+                         using _messaging = updating?.join("canceling");
+-                        this.#isCanceledByPeer = true;
+                         await this.#cancel();
+                         break;
+                     } else {
