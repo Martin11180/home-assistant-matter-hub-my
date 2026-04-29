@@ -8,6 +8,7 @@ import {
 import type { Agent } from "@matter/main";
 import { Thermostat } from "@matter/main/clusters";
 import { HomeAssistantConfig } from "../../../../../services/home-assistant/home-assistant-config.js";
+import { snapToStep } from "../../../../../utils/converters/snap-to-step.js";
 import { Temperature } from "../../../../../utils/converters/temperature.js";
 import { testBit } from "../../../../../utils/test-bit.js";
 import { HomeAssistantEntityBehavior } from "../../../../behaviors/home-assistant-entity-behavior.js";
@@ -36,6 +37,23 @@ const getTemp = (
   if (temperature != null) {
     return Temperature.withUnit(+temperature, unit);
   }
+};
+
+const getStep = (entity: HomeAssistantEntityState): number | undefined => {
+  const raw = attributes(entity).target_temp_step;
+  if (raw == null) return undefined;
+  const num = typeof raw === "string" ? parseFloat(raw) : raw;
+  return Number.isFinite(num) && num > 0 ? num : undefined;
+};
+
+const getRefTemp = (
+  entity: HomeAssistantEntityState,
+  attr: keyof ClimateDeviceAttributes,
+): number | undefined => {
+  const raw = attributes(entity)[attr];
+  if (raw == null) return undefined;
+  const num = typeof raw === "string" ? parseFloat(raw) : (raw as number);
+  return Number.isFinite(num) ? num : undefined;
 };
 
 const systemModeToHvacMode: Record<Thermostat.SystemMode, ClimateHvacMode> = {
@@ -154,7 +172,7 @@ const config: ThermostatServerConfig = {
       hvacModeToSystemMode[hvacMode] ?? Thermostat.SystemMode.Off;
     // Map SystemMode.Auto to the correct mode based on device capabilities.
     // Matter AutoMode = dual setpoint = HA heat_cool.
-    // HA auto ≠ Matter Auto — it's a single-setpoint mode where the device decides.
+    // HA auto ≠ Matter Auto, it's a single-setpoint mode where the device decides.
     if (systemMode === Thermostat.SystemMode.Auto) {
       const modes = attributes(entity).hvac_modes ?? [];
 
@@ -167,23 +185,16 @@ const config: ThermostatServerConfig = {
           : Thermostat.SystemMode.Heat;
       }
 
-      // Device exposes Matter AutoMode via heat_cool or HA auto alongside
-      // explicit heat/cool: keep SystemMode.Auto so Apple shows Auto (#309).
-      // Must mirror the autoMode flag in climate/index.ts: AutoMode requires
-      // BOTH heating and cooling capability, otherwise the underlying base
-      // is HeatingOnly / CoolingOnly and Matter rejects Auto on conformance
-      // (#319).
-      const hasCoolCapability =
-        modes.includes(ClimateHvacMode.cool) ||
-        modes.includes(ClimateHvacMode.heat_cool);
-      const hasHeatCapability =
-        modes.includes(ClimateHvacMode.heat) ||
-        modes.includes(ClimateHvacMode.heat_cool);
+      // Mirror the autoMode flag in climate/index.ts: AutoMode is only safe
+      // when HA exposes heat_cool (dual setpoint) alongside explicit heat or
+      // cool. HA-auto-only devices fall through to dynamic Cool/Heat below
+      // because Apple Home's Auto tile doesn't write SystemMode.Auto for them
+      // (#309). #319: returning Auto on a non-AutoMode base throws
+      // ConformanceError, so the heat_cool guard also keeps us conformant.
       const hasMatterAuto =
-        (modes.includes(ClimateHvacMode.heat_cool) ||
-          modes.includes(ClimateHvacMode.auto)) &&
-        hasCoolCapability &&
-        hasHeatCapability;
+        modes.includes(ClimateHvacMode.heat_cool) &&
+        (modes.includes(ClimateHvacMode.heat) ||
+          modes.includes(ClimateHvacMode.cool));
       if (hasMatterAuto) {
         return systemMode;
       }
@@ -199,12 +210,41 @@ const config: ThermostatServerConfig = {
       if (hasCooling && !hasHeating) {
         return Thermostat.SystemMode.Cool;
       }
-      // Both heat and cool but no heat_cool: use hvac_action to decide
+      // Both heat and cool but no heat_cool: HA `auto` is single-setpoint and
+      // doesn't tell us which direction is active. Use hvac_action when
+      // present, fall back to the last direction we saw for this entity, then
+      // seed from current vs target so Apple Home doesn't flip Cool↔Heat
+      // every time the AC reaches its setpoint and hvac_action goes idle.
+      const homeAssistant = agent.get(HomeAssistantEntityBehavior);
+      const entityId = homeAssistant.entityId;
       const action = attributes(entity).hvac_action;
       if (action === ClimateHvacAction.cooling) {
+        lastHvacDirection.set(entityId, "cooling");
         return Thermostat.SystemMode.Cool;
       }
-      return Thermostat.SystemMode.Heat;
+      if (action === ClimateHvacAction.heating) {
+        lastHvacDirection.set(entityId, "heating");
+        return Thermostat.SystemMode.Heat;
+      }
+      const remembered = lastHvacDirection.get(entityId);
+      if (remembered) {
+        return remembered === "cooling"
+          ? Thermostat.SystemMode.Cool
+          : Thermostat.SystemMode.Heat;
+      }
+      const current = attributes(entity).current_temperature;
+      const target = attributes(entity).temperature;
+      if (typeof current === "number" && typeof target === "number") {
+        if (current > target) {
+          lastHvacDirection.set(entityId, "cooling");
+          return Thermostat.SystemMode.Cool;
+        }
+        if (current < target) {
+          lastHvacDirection.set(entityId, "heating");
+          return Thermostat.SystemMode.Heat;
+        }
+      }
+      return Thermostat.SystemMode.Cool;
     }
     return systemMode;
   },
@@ -294,19 +334,43 @@ const config: ThermostatServerConfig = {
       data: { hvac_mode: targetMode },
     };
   },
-  setTargetTemperature: (value, agent) => ({
-    action: "climate.set_temperature",
-    data: {
-      temperature: value.toUnit(getUnit(agent)),
-    },
-  }),
-  setTargetTemperatureRange: ({ low, high }, agent) => ({
-    action: "climate.set_temperature",
-    data: {
-      target_temp_low: low.toUnit(getUnit(agent)),
-      target_temp_high: high.toUnit(getUnit(agent)),
-    },
-  }),
+  setTargetTemperature: (value, agent) => {
+    const homeAssistant = agent.get(HomeAssistantEntityBehavior);
+    const entity = homeAssistant.entity.state;
+    const unit = getUnit(agent);
+    const target = value.toUnit(unit);
+    const step = getStep(entity);
+    const current =
+      getRefTemp(entity, "temperature") ??
+      getRefTemp(entity, "target_temperature");
+    return {
+      action: "climate.set_temperature",
+      data: {
+        temperature: snapToStep(target, current, step),
+      },
+    };
+  },
+  setTargetTemperatureRange: ({ low, high }, agent) => {
+    const homeAssistant = agent.get(HomeAssistantEntityBehavior);
+    const entity = homeAssistant.entity.state;
+    const unit = getUnit(agent);
+    const step = getStep(entity);
+    const lowTarget = low.toUnit(unit);
+    const highTarget = high.toUnit(unit);
+    const lowCurrent =
+      getRefTemp(entity, "target_temp_low") ??
+      getRefTemp(entity, "temperature");
+    const highCurrent =
+      getRefTemp(entity, "target_temp_high") ??
+      getRefTemp(entity, "temperature");
+    return {
+      action: "climate.set_temperature",
+      data: {
+        target_temp_low: snapToStep(lowTarget, lowCurrent, step),
+        target_temp_high: snapToStep(highTarget, highCurrent, step),
+      },
+    };
+  },
 };
 /**
  * Creates a ClimateThermostatServer with the specified initial state.

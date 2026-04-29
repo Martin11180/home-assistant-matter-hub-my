@@ -24,7 +24,7 @@ class OzoneAirQualityServer extends OzoneAirQualityServerBase {
     await super.initialize();
     const homeAssistant = await this.agent.load(HomeAssistantEntityBehavior);
     this.update(homeAssistant.entity);
-    this.reactTo(homeAssistant.onChange, this.update);
+    this.reactTo(homeAssistant.onChange, this.update, { offline: true });
   }
 
   private update(entity: HomeAssistantEntityInformation) {
@@ -34,7 +34,7 @@ class OzoneAirQualityServer extends OzoneAirQualityServerBase {
 
     if (state != null && !Number.isNaN(+state)) {
       const ugm3 = +state;
-      // O₃ in µg/m³ — thresholds based on WHO air quality guidelines (2021).
+      // O₃ in µg/m³, thresholds based on WHO air quality guidelines (2021).
       if (ugm3 <= 60) {
         airQuality = AirQuality.AirQualityEnum.Good;
       } else if (ugm3 <= 100) {

@@ -49,7 +49,7 @@ export function isRoomMode(mode: number): boolean {
  * Stored in a module-level WeakMap keyed by Agent (stable per endpoint)
  * instead of as private instance properties on the behavior class.
  *
- * matter.js behavior methods run on transient proxy instances — private
+ * matter.js behavior methods run on transient proxy instances, private
  * fields reset to their initial value on every invocation.  A WeakMap
  * keyed by the stable Agent identity survives across calls and is
  * automatically cleaned up when the endpoint is garbage-collected.
@@ -57,11 +57,11 @@ export function isRoomMode(mode: number): boolean {
 interface CleaningSession {
   /** Areas that the vacuum has already finished cleaning in this session */
   completedAreas: Set<number>;
-  /** Last known currentArea — used to detect room transitions */
+  /** Last known currentArea, used to detect room transitions */
   lastCurrentArea: number | null;
   /** Snapshot of selectedAreas taken when cleaning starts.
    *  serviceArea.state.selectedAreas is controller-managed persistent
-   *  state per Matter spec § 1.17.6.3 — the controller may change it
+   *  state per Matter spec § 1.17.6.3, the controller may change it
    *  mid-session, so progress tracking uses this snapshot for the
    *  lifetime of the cleaning run. */
   activeAreas: number[];
@@ -133,7 +133,7 @@ class RvcRunModeServerBase extends Base {
         // completedAreas across the transition so multi-phase sessions
         // don't lose progress when the vacuum returns to the dock.
         // Skip the whole branch when lastCurrentArea is null (brief idle
-        // between command dispatch and vacuum actually starting) — the
+        // between command dispatch and vacuum actually starting), the
         // command handler already set currentArea correctly.
         if (s.lastCurrentArea !== null) {
           s.completedAreas.add(s.lastCurrentArea);
@@ -195,7 +195,7 @@ class RvcRunModeServerBase extends Base {
       if (!currentRoomEntityId) {
         this.logShortCircuitOnce(
           "no-mapping",
-          "currentRoom sensor: no currentRoomEntity in mapping — " +
+          "currentRoom sensor: no currentRoomEntity in mapping, " +
             "auto-detect did not run or sensor not on same HA device",
         );
         return;
@@ -211,16 +211,22 @@ class RvcRunModeServerBase extends Base {
         return;
       }
 
-      if (s.activeAreas.length === 0) {
-        this.logShortCircuitOnce(
-          "no-active-areas",
-          `currentRoom sensor: activeAreas empty while cleaning — ` +
-            `sensor=${currentRoomEntityId} state="${roomState.state}"`,
-        );
-        return;
-      }
-
       const serviceArea = this.agent.get(ServiceAreaBehavior);
+
+      // External-start sessions (HA service call, Roborock app) never run
+      // changeToMode, so activeAreas stays []. currentArea must still
+      // track the actual room reported by the sensor, so in that case
+      // accept any supportedAreas match. With a controller-driven
+      // selection (activeAreas populated), keep the strict filter so we
+      // don't mis-attribute drive-through rooms the user didn't pick.
+      const externalSession = s.activeAreas.length === 0;
+      const supportedAreaIds = serviceArea.state.supportedAreas.map(
+        (a) => a.areaId,
+      );
+      const isAllowedArea = (id: number) =>
+        externalSession
+          ? supportedAreaIds.includes(id)
+          : s.activeAreas.includes(id);
 
       // Match by numeric room/segment ID (preferred) or by room name.
       // Dreame sensors use "room_id", others may use "segment_id".
@@ -233,27 +239,19 @@ class RvcRunModeServerBase extends Base {
 
       let matchedAreaId: number | null = null;
 
-      // Strategy 1: Direct segmentId → activeAreas match.
-      // Works when areaId === room_id (e.g. Dreame floor 0).
-      if (segmentId != null) {
-        if (s.activeAreas.includes(segmentId)) {
-          matchedAreaId = segmentId;
-        }
+      // Strategy 1: Direct segmentId match (areaId === room_id, e.g. Dreame floor 0).
+      if (segmentId != null && isAllowedArea(segmentId)) {
+        matchedAreaId = segmentId;
       }
 
       // Strategy 2: Look up segmentId in supportedAreas to find the
       // corresponding areaId. Dreame multi-floor vacuums offset room IDs
       // per floor (areaId = floorIndex * 10000 + room_id), so the raw
-      // sensor room_id won't match activeAreas directly for floor > 0.
-      // Also handles cases where areaId is a hash of a string room ID.
+      // sensor room_id won't match directly for floor > 0. Also handles
+      // cases where areaId is a hash of a string room ID.
       if (matchedAreaId === null && segmentId != null) {
         for (const area of serviceArea.state.supportedAreas) {
-          // areaId % 10000 recovers the original per-floor room_id
-          // for Dreame multi-floor; for single-floor, areaId === room_id.
-          if (
-            s.activeAreas.includes(area.areaId) &&
-            area.areaId % 10000 === segmentId
-          ) {
+          if (isAllowedArea(area.areaId) && area.areaId % 10000 === segmentId) {
             matchedAreaId = area.areaId;
             break;
           }
@@ -267,7 +265,7 @@ class RvcRunModeServerBase extends Base {
             a.areaInfo.locationInfo?.locationName?.toLowerCase() ===
             roomName.toLowerCase(),
         );
-        if (area && s.activeAreas.includes(area.areaId)) {
+        if (area && isAllowedArea(area.areaId)) {
           matchedAreaId = area.areaId;
         }
       }
@@ -282,7 +280,7 @@ class RvcRunModeServerBase extends Base {
       }
       if (matchedAreaId === s.lastCurrentArea) return;
 
-      // Room transition detected — mark previous area as completed
+      // Room transition detected, mark previous area as completed
       if (s.lastCurrentArea !== null) {
         s.completedAreas.add(s.lastCurrentArea);
       }
@@ -343,7 +341,7 @@ class RvcRunModeServerBase extends Base {
     };
 
     if (areaId === null) {
-      // Cleaning finished — mark all active areas as Completed
+      // Cleaning finished, mark all active areas as Completed
       state.progress = s.activeAreas.map((id) => ({
         areaId: id,
         status: ServiceArea.OperationalStatus.Completed,
@@ -486,7 +484,7 @@ class RvcRunModeServerBase extends Base {
         break;
       }
       case RvcSupportedRunMode.Idle:
-        // Explicit user command to stop — clear session state
+        // Explicit user command to stop, clear session state
         this.trySetCurrentArea(null);
         s.completedAreas.clear();
         s.lastCurrentArea = null;

@@ -24,7 +24,7 @@ class CoAirQualityServer extends CoAirQualityServerBase {
     await super.initialize();
     const homeAssistant = await this.agent.load(HomeAssistantEntityBehavior);
     this.update(homeAssistant.entity);
-    this.reactTo(homeAssistant.onChange, this.update);
+    this.reactTo(homeAssistant.onChange, this.update, { offline: true });
   }
 
   private update(entity: HomeAssistantEntityInformation) {
@@ -34,7 +34,7 @@ class CoAirQualityServer extends CoAirQualityServerBase {
 
     if (state != null && !Number.isNaN(+state)) {
       const ppm = +state;
-      // CO in ppm — thresholds based on WHO indoor air quality guidelines.
+      // CO in ppm, thresholds based on WHO indoor air quality guidelines.
       if (ppm <= 9) {
         airQuality = AirQuality.AirQualityEnum.Good;
       } else if (ppm <= 25) {

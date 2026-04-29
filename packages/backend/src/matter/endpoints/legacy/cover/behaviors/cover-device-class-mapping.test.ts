@@ -76,15 +76,30 @@ describe("deviceClassMapping", () => {
     );
   });
 
-  it("keeps TiltBlindTiltOnly for blind with tilt feature", () => {
-    // supported_features=7+16=23 includes support_open_tilt
+  it("uses TiltBlindLift for blind with both lift and tilt (#323)", () => {
+    // supported_features=7+16=23 includes support_open + support_open_tilt
     const mapping = deviceClassMapping(entity("blind", 23));
+    expect(mapping?.type).toBe(WindowCovering.WindowCoveringType.TiltBlindLift);
+    expect(mapping?.endProductType).toBe(
+      WindowCovering.EndProductType.InteriorBlind,
+    );
+  });
+
+  it("keeps TiltBlindTiltOnly for tilt-only blind (no lift)", () => {
+    // supported_features=16+32+64+128=240 = tilt features only
+    const mapping = deviceClassMapping(entity("blind", 240));
     expect(mapping?.type).toBe(
       WindowCovering.WindowCoveringType.TiltBlindTiltOnly,
     );
     expect(mapping?.endProductType).toBe(
       WindowCovering.EndProductType.InteriorBlind,
     );
+  });
+
+  it("maps window to Rollershade + Unknown", () => {
+    const mapping = deviceClassMapping(entity("window"));
+    expect(mapping?.type).toBe(WindowCovering.WindowCoveringType.Rollershade);
+    expect(mapping?.endProductType).toBe(WindowCovering.EndProductType.Unknown);
   });
 
   it("covers every documented key", () => {
@@ -94,6 +109,7 @@ describe("deviceClassMapping", () => {
       "curtain",
       "shade",
       "shutter",
+      "window",
     ]);
   });
 });
