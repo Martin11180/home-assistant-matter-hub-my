@@ -31,7 +31,7 @@ index a120669cfd13ebdaf635fc75ad9d232b95703fe7..f0482d7cb39500785832802b8d509b7a
        issuer: (0, import_types.TlvField)(
          3,
 diff --git a/dist/cjs/protocol/DeviceAdvertiser.js b/dist/cjs/protocol/DeviceAdvertiser.js
-index eba2665e872fe89e13ef175fd30d1732c530ecc5..ec3ac0c35b0bd3b666ce178c90acb307ea1fc8db 100644
+index eba2665e872fe89e13ef175fd30d1732c530ecc5..792eab9c9d48dd5e5981beec460288222476c47f 100644
 --- a/dist/cjs/protocol/DeviceAdvertiser.js
 +++ b/dist/cjs/protocol/DeviceAdvertiser.js
 @@ -32,6 +32,9 @@ var import_SessionManager = require("#session/SessionManager.js");
@@ -40,7 +40,7 @@ index eba2665e872fe89e13ef175fd30d1732c530ecc5..ec3ac0c35b0bd3b666ce178c90acb307
  const logger = import_general.Logger.get("DeviceAdvertiser");
 +const PEER_CANCEL_REANNOUNCE_DELAY_MS = 5e3;
 +const PEER_CANCEL_REANNOUNCE_MAX_ATTEMPTS = 3;
-+const PROLONGED_DISCONNECT_THRESHOLD_MS = 2e4;
++const PROLONGED_DISCONNECT_THRESHOLD_MS = 6e4;
  class DeviceAdvertiser {
    #context;
    #advertisers = /* @__PURE__ */ new Set();
@@ -100,7 +100,7 @@ index eba2665e872fe89e13ef175fd30d1732c530ecc5..ec3ac0c35b0bd3b666ce178c90acb307
 +            return;
 +          }
 +          this.#peerCancelReannounceTimer = void 0;
-+          logger.debug(`Execute re-announce (prolonged disconnect)`);
++          logger.debug(`Execute re-announce (prolonged disconnect > 60s)`);
 +          this.#advertiseFabric(session.fabric, "reconnect");
 +        };
 +        this.#peerCancelReannounceTimer = setTimeout(() => attemptReannounce(1), PEER_CANCEL_REANNOUNCE_DELAY_MS);
@@ -154,7 +154,7 @@ index 41a546f5cb99b2bcbb16f978173eff602fdbdd81..1182274d2c0781ab7332e8e50327226d
        issuer: TlvField(
          3,
 diff --git a/dist/esm/protocol/DeviceAdvertiser.js b/dist/esm/protocol/DeviceAdvertiser.js
-index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..36a193b3c3b9c95a0669316ddaff9a3807d40044 100644
+index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..1955a6e7c897d3d691fa158c7dbb74def2bb1015 100644
 --- a/dist/esm/protocol/DeviceAdvertiser.js
 +++ b/dist/esm/protocol/DeviceAdvertiser.js
 @@ -9,6 +9,9 @@ import { FabricManager } from "#fabric/FabricManager.js";
@@ -163,7 +163,7 @@ index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..36a193b3c3b9c95a0669316ddaff9a38
  const logger = Logger.get("DeviceAdvertiser");
 +const PEER_CANCEL_REANNOUNCE_DELAY_MS = 5e3;
 +const PEER_CANCEL_REANNOUNCE_MAX_ATTEMPTS = 3;
-+const PROLONGED_DISCONNECT_THRESHOLD_MS = 2e4;
++const PROLONGED_DISCONNECT_THRESHOLD_MS = 6e4;
  class DeviceAdvertiser {
    #context;
    #advertisers = /* @__PURE__ */ new Set();
@@ -223,7 +223,7 @@ index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..36a193b3c3b9c95a0669316ddaff9a38
 +            return;
 +          }
 +          this.#peerCancelReannounceTimer = void 0;
-+          logger.debug(`Execute re-announce (prolonged disconnect)`);
++          logger.debug(`Execute re-announce (prolonged disconnect > 60s)`);
 +          this.#advertiseFabric(session.fabric, "reconnect");
 +        };
 +        this.#peerCancelReannounceTimer = setTimeout(() => attemptReannounce(1), PEER_CANCEL_REANNOUNCE_DELAY_MS);
@@ -245,7 +245,7 @@ index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..36a193b3c3b9c95a0669316ddaff9a38
      await this.clearAdvertisers();
    }
 diff --git a/src/protocol/DeviceAdvertiser.ts b/src/protocol/DeviceAdvertiser.ts
-index 41963d741672344dd7314fb212c9264e1c06d23d..f01cbd9827fa887897961dabfb6c49d7809acef3 100644
+index 41963d741672344dd7314fb212c9264e1c06d23d..099f207e5cccadfe88af6d82610ba62dcb5b25a7 100644
 --- a/src/protocol/DeviceAdvertiser.ts
 +++ b/src/protocol/DeviceAdvertiser.ts
 @@ -14,6 +14,9 @@ import { SecureSession } from "#session/SecureSession.js";
@@ -254,7 +254,7 @@ index 41963d741672344dd7314fb212c9264e1c06d23d..f01cbd9827fa887897961dabfb6c49d7
  const logger = Logger.get("DeviceAdvertiser");
 +const PEER_CANCEL_REANNOUNCE_DELAY_MS = 5_000;
 +const PEER_CANCEL_REANNOUNCE_MAX_ATTEMPTS = 3;
-+const PROLONGED_DISCONNECT_THRESHOLD_MS = 20_000;
++const PROLONGED_DISCONNECT_THRESHOLD_MS = 60_000;
  
  /**
   * Interfaces the {@link DeviceAdvertiser} with other components.
@@ -325,7 +325,7 @@ index 41963d741672344dd7314fb212c9264e1c06d23d..f01cbd9827fa887897961dabfb6c49d7
 +                    }
 +
 +                    this.#peerCancelReannounceTimer = undefined;
-+                    logger.debug(`Execute re-announce (prolonged disconnect)`);
++                    logger.debug(`Execute re-announce (prolonged disconnect > 60s)`);
 +                    this.#advertiseFabric(session.fabric, "reconnect");
 +                };
 +                this.#peerCancelReannounceTimer = setTimeout(() => attemptReannounce(1), PEER_CANCEL_REANNOUNCE_DELAY_MS);
