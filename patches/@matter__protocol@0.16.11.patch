@@ -31,10 +31,26 @@ index a120669cfd13ebdaf635fc75ad9d232b95703fe7..f0482d7cb39500785832802b8d509b7a
        issuer: (0, import_types.TlvField)(
          3,
 diff --git a/dist/cjs/protocol/DeviceAdvertiser.js b/dist/cjs/protocol/DeviceAdvertiser.js
-index eba2665e872fe89e13ef175fd30d1732c530ecc5..0b699739ae7a05f7a8da3a919a7ed75fe6df5988 100644
+index eba2665e872fe89e13ef175fd30d1732c530ecc5..192ca1a02fe0ee26b64f662e6fb5be1bca56230a 100644
 --- a/dist/cjs/protocol/DeviceAdvertiser.js
 +++ b/dist/cjs/protocol/DeviceAdvertiser.js
-@@ -105,10 +105,15 @@ class DeviceAdvertiser {
+@@ -32,6 +32,7 @@ var import_SessionManager = require("#session/SessionManager.js");
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ const logger = import_general.Logger.get("DeviceAdvertiser");
++const PEER_CANCEL_REANNOUNCE_GUARD_MS = 1e4;
+ class DeviceAdvertiser {
+   #context;
+   #advertisers = /* @__PURE__ */ new Set();
+@@ -39,6 +40,7 @@ class DeviceAdvertiser {
+   #isOperational = false;
+   #isClosing = false;
+   #commissioningService;
++  #lastSubscriptionEndAt = 0;
+   constructor(context) {
+     this.#context = context;
+     const { fabrics, sessions } = this.#context;
+@@ -105,10 +107,23 @@ class DeviceAdvertiser {
        this.#advertiseFabric(session.associatedFabric, "retransmit");
      });
      this.#observers.on(this.#context.sessions.subscriptionsChanged, (session, subscription) => {
@@ -44,11 +60,19 @@ index eba2665e872fe89e13ef175fd30d1732c530ecc5..0b699739ae7a05f7a8da3a919a7ed75f
 +        return;
 +      }
 +      if (subscription.isCanceledByPeer) {
-+        logger.debug(`Subscription canceled (reason=peer) → trigger re-announce`);
++        const now = Date.now();
++        const hasActiveSessionForPeer = session.fabric.hasSessionForPeer(session.peerNodeId);
++        const hasRecentSubscriptionActivity = this.#lastSubscriptionEndAt !== 0 && now - this.#lastSubscriptionEndAt < PEER_CANCEL_REANNOUNCE_GUARD_MS;
++        this.#lastSubscriptionEndAt = now;
++        if (hasActiveSessionForPeer || hasRecentSubscriptionActivity) {
++          logger.debug(`Peer cancel detected -> skip re-announce (recent activity)`);
++          return;
++        }
++        logger.debug(`Peer cancel detected -> trigger re-announce`);
          this.#advertiseFabric(session.fabric, "reconnect");
 +        return;
        }
-+      logger.debug(`Subscription canceled (reason=timeout) → skip re-announce`);
++      logger.debug(`Subscription canceled (reason=timeout) -> skip re-announce`);
      });
    }
    toString() {
@@ -85,10 +109,26 @@ index 41a546f5cb99b2bcbb16f978173eff602fdbdd81..1182274d2c0781ab7332e8e50327226d
        issuer: TlvField(
          3,
 diff --git a/dist/esm/protocol/DeviceAdvertiser.js b/dist/esm/protocol/DeviceAdvertiser.js
-index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..8c92ec15b6aea4e52b659ad4ec73b6dfbbbe4787 100644
+index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..50c99bcdc592d13facadc6b20acb0168148c2de1 100644
 --- a/dist/esm/protocol/DeviceAdvertiser.js
 +++ b/dist/esm/protocol/DeviceAdvertiser.js
-@@ -82,10 +82,15 @@ class DeviceAdvertiser {
+@@ -9,6 +9,7 @@ import { FabricManager } from "#fabric/FabricManager.js";
+ import { Environmental, Logger, MatterAggregateError, ObserverGroup } from "#general";
+ import { SessionManager } from "#session/SessionManager.js";
+ const logger = Logger.get("DeviceAdvertiser");
++const PEER_CANCEL_REANNOUNCE_GUARD_MS = 1e4;
+ class DeviceAdvertiser {
+   #context;
+   #advertisers = /* @__PURE__ */ new Set();
+@@ -16,6 +17,7 @@ class DeviceAdvertiser {
+   #isOperational = false;
+   #isClosing = false;
+   #commissioningService;
++  #lastSubscriptionEndAt = 0;
+   constructor(context) {
+     this.#context = context;
+     const { fabrics, sessions } = this.#context;
+@@ -82,10 +84,23 @@ class DeviceAdvertiser {
        this.#advertiseFabric(session.associatedFabric, "retransmit");
      });
      this.#observers.on(this.#context.sessions.subscriptionsChanged, (session, subscription) => {
@@ -98,19 +138,43 @@ index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..8c92ec15b6aea4e52b659ad4ec73b6df
 +        return;
 +      }
 +      if (subscription.isCanceledByPeer) {
-+        logger.debug(`Subscription canceled (reason=peer) → trigger re-announce`);
++        const now = Date.now();
++        const hasActiveSessionForPeer = session.fabric.hasSessionForPeer(session.peerNodeId);
++        const hasRecentSubscriptionActivity = this.#lastSubscriptionEndAt !== 0 && now - this.#lastSubscriptionEndAt < PEER_CANCEL_REANNOUNCE_GUARD_MS;
++        this.#lastSubscriptionEndAt = now;
++        if (hasActiveSessionForPeer || hasRecentSubscriptionActivity) {
++          logger.debug(`Peer cancel detected -> skip re-announce (recent activity)`);
++          return;
++        }
++        logger.debug(`Peer cancel detected -> trigger re-announce`);
          this.#advertiseFabric(session.fabric, "reconnect");
 +        return;
        }
-+      logger.debug(`Subscription canceled (reason=timeout) → skip re-announce`);
++      logger.debug(`Subscription canceled (reason=timeout) -> skip re-announce`);
      });
    }
    toString() {
 diff --git a/src/protocol/DeviceAdvertiser.ts b/src/protocol/DeviceAdvertiser.ts
-index 41963d741672344dd7314fb212c9264e1c06d23d..cfe91f8368b913962ead39090214f8ffe41efac6 100644
+index 41963d741672344dd7314fb212c9264e1c06d23d..adc95b14d8d522554f3051e3589418af739cc2b0 100644
 --- a/src/protocol/DeviceAdvertiser.ts
 +++ b/src/protocol/DeviceAdvertiser.ts
-@@ -135,10 +135,17 @@ export class DeviceAdvertiser {
+@@ -14,6 +14,7 @@ import { SecureSession } from "#session/SecureSession.js";
+ import { SessionManager } from "#session/SessionManager.js";
+ 
+ const logger = Logger.get("DeviceAdvertiser");
++const PEER_CANCEL_REANNOUNCE_GUARD_MS = 10_000;
+ 
+ /**
+  * Interfaces the {@link DeviceAdvertiser} with other components.
+@@ -33,6 +34,7 @@ export class DeviceAdvertiser {
+     #isOperational = false;
+     #isClosing = false;
+     #commissioningService?: ServiceDescription;
++    #lastSubscriptionEndAt = 0;
+ 
+     constructor(context: DeviceAdvertiserContext) {
+         this.#context = context;
+@@ -135,10 +137,29 @@ export class DeviceAdvertiser {
          });
  
          this.#observers.on(this.#context.sessions.subscriptionsChanged, (session, subscription) => {
@@ -121,12 +185,24 @@ index 41963d741672344dd7314fb212c9264e1c06d23d..cfe91f8368b913962ead39090214f8ff
 +            }
 +
 +            if (subscription.isCanceledByPeer) {
-+                logger.debug(`Subscription canceled (reason=peer) → trigger re-announce`);
++                const now = Date.now();
++                const hasActiveSessionForPeer = session.fabric.hasSessionForPeer(session.peerNodeId);
++                const hasRecentSubscriptionActivity =
++                    this.#lastSubscriptionEndAt !== 0 &&
++                    now - this.#lastSubscriptionEndAt < PEER_CANCEL_REANNOUNCE_GUARD_MS;
++                this.#lastSubscriptionEndAt = now;
++
++                if (hasActiveSessionForPeer || hasRecentSubscriptionActivity) {
++                    logger.debug(`Peer cancel detected -> skip re-announce (recent activity)`);
++                    return;
++                }
++
++                logger.debug(`Peer cancel detected -> trigger re-announce`);
                  this.#advertiseFabric(session.fabric, "reconnect");
 +                return;
              }
 +
-+            logger.debug(`Subscription canceled (reason=timeout) → skip re-announce`);
++            logger.debug(`Subscription canceled (reason=timeout) -> skip re-announce`);
          });
      }
  
