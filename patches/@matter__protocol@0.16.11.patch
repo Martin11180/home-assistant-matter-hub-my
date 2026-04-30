@@ -31,7 +31,7 @@ index a120669cfd13ebdaf635fc75ad9d232b95703fe7..f0482d7cb39500785832802b8d509b7a
        issuer: (0, import_types.TlvField)(
          3,
 diff --git a/dist/cjs/protocol/DeviceAdvertiser.js b/dist/cjs/protocol/DeviceAdvertiser.js
-index eba2665e872fe89e13ef175fd30d1732c530ecc5..176615d4de11451f55c3d6104a2302088b600855 100644
+index eba2665e872fe89e13ef175fd30d1732c530ecc5..b66cee9488df87d84647ae931c0c6a345d2fbc2a 100644
 --- a/dist/cjs/protocol/DeviceAdvertiser.js
 +++ b/dist/cjs/protocol/DeviceAdvertiser.js
 @@ -32,6 +32,8 @@ var import_SessionManager = require("#session/SessionManager.js");
@@ -51,7 +51,7 @@ index eba2665e872fe89e13ef175fd30d1732c530ecc5..176615d4de11451f55c3d6104a230208
    constructor(context) {
      this.#context = context;
      const { fabrics, sessions } = this.#context;
-@@ -105,10 +108,34 @@ class DeviceAdvertiser {
+@@ -105,10 +108,37 @@ class DeviceAdvertiser {
        this.#advertiseFabric(session.associatedFabric, "retransmit");
      });
      this.#observers.on(this.#context.sessions.subscriptionsChanged, (session, subscription) => {
@@ -69,9 +69,12 @@ index eba2665e872fe89e13ef175fd30d1732c530ecc5..176615d4de11451f55c3d6104a230208
 +        const attemptReannounce = (attempt) => {
 +          logger.debug(`Delayed re-announce check attempt ${attempt}/${PEER_CANCEL_REANNOUNCE_MAX_ATTEMPTS}`);
 +          const hasActiveSessionForPeer = session.fabric?.hasSessionForPeer(session.peerNodeId) ?? false;
-+          if (hasActiveSessionForPeer) {
++          const hasActiveSubscriptionForPeer = this.#context.sessions.forFabric(session.fabric).some(
++            (activeSession) => activeSession.peerNodeId === session.peerNodeId && activeSession.subscriptions.size > 0
++          );
++          if (hasActiveSessionForPeer || hasActiveSubscriptionForPeer) {
 +            this.#peerCancelReannounceTimer = void 0;
-+            logger.debug(`Delayed re-announce skipped (session detected)`);
++            logger.debug(`Delayed re-announce skipped (subscription active)`);
 +            return;
 +          }
 +          if (attempt < PEER_CANCEL_REANNOUNCE_MAX_ATTEMPTS) {
@@ -79,7 +82,7 @@ index eba2665e872fe89e13ef175fd30d1732c530ecc5..176615d4de11451f55c3d6104a230208
 +            return;
 +          }
 +          this.#peerCancelReannounceTimer = void 0;
-+          logger.debug(`Delayed re-announce executed after retries`);
++          logger.debug(`Delayed re-announce executed (no session + no subscription)`);
 +          this.#advertiseFabric(session.fabric, "reconnect");
 +        };
 +        this.#peerCancelReannounceTimer = setTimeout(() => attemptReannounce(1), PEER_CANCEL_REANNOUNCE_DELAY_MS);
@@ -89,7 +92,7 @@ index eba2665e872fe89e13ef175fd30d1732c530ecc5..176615d4de11451f55c3d6104a230208
      });
    }
    toString() {
-@@ -202,6 +229,10 @@ class DeviceAdvertiser {
+@@ -202,6 +232,10 @@ class DeviceAdvertiser {
    }
    async close() {
      this.#isClosing = true;
@@ -133,7 +136,7 @@ index 41a546f5cb99b2bcbb16f978173eff602fdbdd81..1182274d2c0781ab7332e8e50327226d
        issuer: TlvField(
          3,
 diff --git a/dist/esm/protocol/DeviceAdvertiser.js b/dist/esm/protocol/DeviceAdvertiser.js
-index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..1b28be8d68bf5aa6307b826ab7aae4e59b3b01d3 100644
+index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..465a49cbfa868019840e47a4e93921956678e890 100644
 --- a/dist/esm/protocol/DeviceAdvertiser.js
 +++ b/dist/esm/protocol/DeviceAdvertiser.js
 @@ -9,6 +9,8 @@ import { FabricManager } from "#fabric/FabricManager.js";
@@ -153,7 +156,7 @@ index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..1b28be8d68bf5aa6307b826ab7aae4e5
    constructor(context) {
      this.#context = context;
      const { fabrics, sessions } = this.#context;
-@@ -82,10 +85,34 @@ class DeviceAdvertiser {
+@@ -82,10 +85,37 @@ class DeviceAdvertiser {
        this.#advertiseFabric(session.associatedFabric, "retransmit");
      });
      this.#observers.on(this.#context.sessions.subscriptionsChanged, (session, subscription) => {
@@ -171,9 +174,12 @@ index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..1b28be8d68bf5aa6307b826ab7aae4e5
 +        const attemptReannounce = (attempt) => {
 +          logger.debug(`Delayed re-announce check attempt ${attempt}/${PEER_CANCEL_REANNOUNCE_MAX_ATTEMPTS}`);
 +          const hasActiveSessionForPeer = session.fabric?.hasSessionForPeer(session.peerNodeId) ?? false;
-+          if (hasActiveSessionForPeer) {
++          const hasActiveSubscriptionForPeer = this.#context.sessions.forFabric(session.fabric).some(
++            (activeSession) => activeSession.peerNodeId === session.peerNodeId && activeSession.subscriptions.size > 0
++          );
++          if (hasActiveSessionForPeer || hasActiveSubscriptionForPeer) {
 +            this.#peerCancelReannounceTimer = void 0;
-+            logger.debug(`Delayed re-announce skipped (session detected)`);
++            logger.debug(`Delayed re-announce skipped (subscription active)`);
 +            return;
 +          }
 +          if (attempt < PEER_CANCEL_REANNOUNCE_MAX_ATTEMPTS) {
@@ -181,7 +187,7 @@ index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..1b28be8d68bf5aa6307b826ab7aae4e5
 +            return;
 +          }
 +          this.#peerCancelReannounceTimer = void 0;
-+          logger.debug(`Delayed re-announce executed after retries`);
++          logger.debug(`Delayed re-announce executed (no session + no subscription)`);
 +          this.#advertiseFabric(session.fabric, "reconnect");
 +        };
 +        this.#peerCancelReannounceTimer = setTimeout(() => attemptReannounce(1), PEER_CANCEL_REANNOUNCE_DELAY_MS);
@@ -191,7 +197,7 @@ index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..1b28be8d68bf5aa6307b826ab7aae4e5
      });
    }
    toString() {
-@@ -179,6 +206,10 @@ class DeviceAdvertiser {
+@@ -179,6 +209,10 @@ class DeviceAdvertiser {
    }
    async close() {
      this.#isClosing = true;
@@ -203,7 +209,7 @@ index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..1b28be8d68bf5aa6307b826ab7aae4e5
      await this.clearAdvertisers();
    }
 diff --git a/src/protocol/DeviceAdvertiser.ts b/src/protocol/DeviceAdvertiser.ts
-index 41963d741672344dd7314fb212c9264e1c06d23d..cf74975ae28d4b93c569976e80df10b90faffba7 100644
+index 41963d741672344dd7314fb212c9264e1c06d23d..8030b34767cc1b93771eed7d38f4a799094ee475 100644
 --- a/src/protocol/DeviceAdvertiser.ts
 +++ b/src/protocol/DeviceAdvertiser.ts
 @@ -14,6 +14,8 @@ import { SecureSession } from "#session/SecureSession.js";
@@ -223,7 +229,7 @@ index 41963d741672344dd7314fb212c9264e1c06d23d..cf74975ae28d4b93c569976e80df10b9
  
      constructor(context: DeviceAdvertiserContext) {
          this.#context = context;
-@@ -135,10 +138,40 @@ export class DeviceAdvertiser {
+@@ -135,10 +138,48 @@ export class DeviceAdvertiser {
          });
  
          this.#observers.on(this.#context.sessions.subscriptionsChanged, (session, subscription) => {
@@ -242,9 +248,17 @@ index 41963d741672344dd7314fb212c9264e1c06d23d..cf74975ae28d4b93c569976e80df10b9
 +                const attemptReannounce = (attempt: number) => {
 +                    logger.debug(`Delayed re-announce check attempt ${attempt}/${PEER_CANCEL_REANNOUNCE_MAX_ATTEMPTS}`);
 +                    const hasActiveSessionForPeer = session.fabric?.hasSessionForPeer(session.peerNodeId) ?? false;
-+                    if (hasActiveSessionForPeer) {
++                    const hasActiveSubscriptionForPeer =
++                        this.#context.sessions
++                            .forFabric(session.fabric)
++                            .some(
++                                activeSession =>
++                                    activeSession.peerNodeId === session.peerNodeId &&
++                                    activeSession.subscriptions.size > 0,
++                            );
++                    if (hasActiveSessionForPeer || hasActiveSubscriptionForPeer) {
 +                        this.#peerCancelReannounceTimer = undefined;
-+                        logger.debug(`Delayed re-announce skipped (session detected)`);
++                        logger.debug(`Delayed re-announce skipped (subscription active)`);
 +                        return;
 +                    }
 +                    if (attempt < PEER_CANCEL_REANNOUNCE_MAX_ATTEMPTS) {
@@ -256,7 +270,7 @@ index 41963d741672344dd7314fb212c9264e1c06d23d..cf74975ae28d4b93c569976e80df10b9
 +                    }
 +
 +                    this.#peerCancelReannounceTimer = undefined;
-+                    logger.debug(`Delayed re-announce executed after retries`);
++                    logger.debug(`Delayed re-announce executed (no session + no subscription)`);
 +                    this.#advertiseFabric(session.fabric, "reconnect");
 +                };
 +                this.#peerCancelReannounceTimer = setTimeout(() => attemptReannounce(1), PEER_CANCEL_REANNOUNCE_DELAY_MS);
@@ -267,7 +281,7 @@ index 41963d741672344dd7314fb212c9264e1c06d23d..cf74975ae28d4b93c569976e80df10b9
          });
      }
  
-@@ -251,6 +284,10 @@ export class DeviceAdvertiser {
+@@ -251,6 +292,10 @@ export class DeviceAdvertiser {
  
      async close() {
          this.#isClosing = true;
