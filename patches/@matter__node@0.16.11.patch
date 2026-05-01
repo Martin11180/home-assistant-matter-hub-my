@@ -2,18 +2,20 @@ diff --git a/dist/cjs/behaviors/descriptor/DescriptorServer.js b/dist/cjs/behavi
 index a6786485017dd7789ee6a8fc4f0d9033dcdb2ae2..c1a6dd834c3e824b570572e79cbe3e648ce1dffc 100644
 --- a/dist/cjs/behaviors/descriptor/DescriptorServer.js
 +++ b/dist/cjs/behaviors/descriptor/DescriptorServer.js
-@@ -186,9 +186,9 @@ class DescriptorServer extends import_DescriptorBehavior.DescriptorBehavior {
+@@ -186,14 +186,14 @@ class DescriptorServer extends import_DescriptorBehavior.DescriptorBehavior {
     */
-   get #serverList() {
-     const list = new Array();
+  get #serverList() {
+    if (this.endpoint.number === 0) {
+      return [29, 40, 48, 62, 31, 51];
+    }
+    const list = new Array();
 -    for (const type of Object.values(this.endpoint.behaviors.supported)) {
 +    for (const type of this.endpoint.behaviors.active) {
-       const clusterId = type.cluster?.id;
--      if (clusterId) {
-+      if (clusterId && !(this.endpoint.number === 0 && (clusterId === 195 || clusterId === 70))) {
-         list.push(clusterId);
-       }
-     }
+      const clusterId = type.cluster?.id;
+      if (clusterId) {
+        list.push(clusterId);
+      }
+    }
 diff --git a/dist/cjs/node/server/ServerSubscription.js b/dist/cjs/node/server/ServerSubscription.js
 index 9c1aa6236867a1e021828704dcd3150ab99b2240..fbd18b6bd3622d0f65268e9272196994ae682a52 100644
 --- a/dist/cjs/node/server/ServerSubscription.js
@@ -64,18 +66,20 @@ diff --git a/dist/esm/behaviors/descriptor/DescriptorServer.js b/dist/esm/behavi
 index 9c40593ff872cce8d40edcd4f01d0399a9461721..89f0b31f3fbc804607123a2530538e0b3811e284 100644
 --- a/dist/esm/behaviors/descriptor/DescriptorServer.js
 +++ b/dist/esm/behaviors/descriptor/DescriptorServer.js
-@@ -163,9 +163,9 @@ class DescriptorServer extends DescriptorBehavior {
+@@ -163,14 +163,14 @@ class DescriptorServer extends DescriptorBehavior {
     */
-   get #serverList() {
-     const list = new Array();
+  get #serverList() {
+    if (this.endpoint.number === 0) {
+      return [29, 40, 48, 62, 31, 51];
+    }
+    const list = new Array();
 -    for (const type of Object.values(this.endpoint.behaviors.supported)) {
 +    for (const type of this.endpoint.behaviors.active) {
-       const clusterId = type.cluster?.id;
--      if (clusterId) {
-+      if (clusterId && !(this.endpoint.number === 0 && (clusterId === 195 || clusterId === 70))) {
-         list.push(clusterId);
-       }
-     }
+      const clusterId = type.cluster?.id;
+      if (clusterId) {
+        list.push(clusterId);
+      }
+    }
 diff --git a/dist/esm/node/server/ServerSubscription.js b/dist/esm/node/server/ServerSubscription.js
 index 3da9287e7aa8111af3a07e234f0415131eb06304..3b33b278699e4ad0deeef57d2bfd3f84625de2e2 100644
 --- a/dist/esm/node/server/ServerSubscription.js
@@ -126,18 +130,20 @@ diff --git a/src/behaviors/descriptor/DescriptorServer.ts b/src/behaviors/descri
 index 33cf1714755fc69b0a14cff468bc65a90f9aa9af..3febe8cdd76644e9f624367ace7cb9462cc219d0 100644
 --- a/src/behaviors/descriptor/DescriptorServer.ts
 +++ b/src/behaviors/descriptor/DescriptorServer.ts
-@@ -235,9 +235,9 @@ export class DescriptorServer extends DescriptorBehavior {
+@@ -235,14 +235,14 @@ export class DescriptorServer extends DescriptorBehavior {
       */
-     get #serverList() {
-         const list = new Array<ClusterId>();
+    get #serverList() {
+        if (this.endpoint.number === 0) {
+            return [0x001d, 0x0028, 0x0030, 0x003e, 0x001f, 0x0033];
+        }
+        const list = new Array<ClusterId>();
 -        for (const type of Object.values(this.endpoint.behaviors.supported)) {
 +        for (const type of this.endpoint.behaviors.active) {
-             const clusterId = (type as { cluster?: { id?: ClusterId } }).cluster?.id;
--            if (clusterId) {
-+            if (clusterId && !(this.endpoint.number === 0 && (clusterId === 195 || clusterId === 70))) {
-                 list.push(clusterId);
-             }
-         }
+            const clusterId = (type as { cluster?: { id?: ClusterId } }).cluster?.id;
+            if (clusterId) {
+                list.push(clusterId);
+            }
+        }
 diff --git a/src/node/server/ServerSubscription.ts b/src/node/server/ServerSubscription.ts
 index 13953b5a8c9f68e60942e0bebf563eb9ea866d9f..caa1a6502817f4e8f3ac3c998d0b41ee5ac091d0 100644
 --- a/src/node/server/ServerSubscription.ts
