@@ -1,8 +1,18 @@
 diff --git a/dist/cjs/behaviors/descriptor/DescriptorServer.js b/dist/cjs/behaviors/descriptor/DescriptorServer.js
-index a6786485017dd7789ee6a8fc4f0d9033dcdb2ae2..fe4fcbf02421c68d7c7d34bd47a245f995437694 100644
+index a6786485017dd7789ee6a8fc4f0d9033dcdb2ae2..ec1063a331870deffe16fe7741f467e46aa82dec 100644
 --- a/dist/cjs/behaviors/descriptor/DescriptorServer.js
 +++ b/dist/cjs/behaviors/descriptor/DescriptorServer.js
-@@ -185,8 +185,11 @@ class DescriptorServer extends import_DescriptorBehavior.DescriptorBehavior {
+@@ -46,6 +46,9 @@ class DescriptorServer extends import_DescriptorBehavior.DescriptorBehavior {
+     this.reactTo(this.endpoint.lifecycle.changed, this.#updateDescriptor);
+     this.state.serverList = this.#serverList;
+     this.#initializeDeviceTypeList();
++    if (this.state.endpointUniqueId === void 0) {
++      this.state.endpointUniqueId = `endpoint-${this.endpoint.number}`;
++    }
+   }
+   /** Initialize device type list when it is not already initialized. */
+   #initializeDeviceTypeList() {
+@@ -185,8 +188,11 @@ class DescriptorServer extends import_DescriptorBehavior.DescriptorBehavior {
     * Computed current server list.
     */
    get #serverList() {
@@ -15,6 +25,20 @@ index a6786485017dd7789ee6a8fc4f0d9033dcdb2ae2..fe4fcbf02421c68d7c7d34bd47a245f9
        const clusterId = type.cluster?.id;
        if (clusterId) {
          list.push(clusterId);
+diff --git a/dist/cjs/endpoints/root.js b/dist/cjs/endpoints/root.js
+index aec81c78cc26a8f73d8b87c9be6560d557e5e962..3c39d5a33c94d32dc118af31952ea53d4baa46c2 100644
+--- a/dist/cjs/endpoints/root.js
++++ b/dist/cjs/endpoints/root.js
+@@ -116,7 +116,8 @@ const RootEndpointDefinition = (0, import_MutableEndpoint.MutableEndpoint)({
+     RootRequirements.server.mandatory.GeneralCommissioning,
+     RootRequirements.server.mandatory.AdministratorCommissioning,
+     RootRequirements.server.mandatory.OperationalCredentials,
+-    RootRequirements.server.mandatory.GeneralDiagnostics
++    RootRequirements.server.mandatory.GeneralDiagnostics,
++    RootRequirements.server.optional.NetworkCommissioning
+   )
+ });
+ Object.freeze(RootEndpointDefinition);
 diff --git a/dist/cjs/node/server/ServerSubscription.js b/dist/cjs/node/server/ServerSubscription.js
 index 9c1aa6236867a1e021828704dcd3150ab99b2240..fbd18b6bd3622d0f65268e9272196994ae682a52 100644
 --- a/dist/cjs/node/server/ServerSubscription.js
@@ -62,10 +86,20 @@ index 9c1aa6236867a1e021828704dcd3150ab99b2240..fbd18b6bd3622d0f65268e9272196994
          } else {
            import_types.StatusResponseError.accept(error);
 diff --git a/dist/esm/behaviors/descriptor/DescriptorServer.js b/dist/esm/behaviors/descriptor/DescriptorServer.js
-index 9c40593ff872cce8d40edcd4f01d0399a9461721..11a22b92ee679b05f50223154516926e8eab4ca4 100644
+index 9c40593ff872cce8d40edcd4f01d0399a9461721..20fba4942a3440b860a6ab2f6cdfd0acb3091748 100644
 --- a/dist/esm/behaviors/descriptor/DescriptorServer.js
 +++ b/dist/esm/behaviors/descriptor/DescriptorServer.js
-@@ -162,8 +162,11 @@ class DescriptorServer extends DescriptorBehavior {
+@@ -23,6 +23,9 @@ class DescriptorServer extends DescriptorBehavior {
+     this.reactTo(this.endpoint.lifecycle.changed, this.#updateDescriptor);
+     this.state.serverList = this.#serverList;
+     this.#initializeDeviceTypeList();
++    if (this.state.endpointUniqueId === void 0) {
++      this.state.endpointUniqueId = `endpoint-${this.endpoint.number}`;
++    }
+   }
+   /** Initialize device type list when it is not already initialized. */
+   #initializeDeviceTypeList() {
+@@ -162,8 +165,11 @@ class DescriptorServer extends DescriptorBehavior {
     * Computed current server list.
     */
    get #serverList() {
@@ -78,6 +112,20 @@ index 9c40593ff872cce8d40edcd4f01d0399a9461721..11a22b92ee679b05f50223154516926e
        const clusterId = type.cluster?.id;
        if (clusterId) {
          list.push(clusterId);
+diff --git a/dist/esm/endpoints/root.js b/dist/esm/endpoints/root.js
+index ce17ed4908643f0f06297ec45f578dd8c406e9f7..a6d6d881a81414a03f3c199f214fdd0f73613608 100644
+--- a/dist/esm/endpoints/root.js
++++ b/dist/esm/endpoints/root.js
+@@ -123,7 +123,8 @@ const RootEndpointDefinition = MutableEndpoint({
+     RootRequirements.server.mandatory.GeneralCommissioning,
+     RootRequirements.server.mandatory.AdministratorCommissioning,
+     RootRequirements.server.mandatory.OperationalCredentials,
+-    RootRequirements.server.mandatory.GeneralDiagnostics
++    RootRequirements.server.mandatory.GeneralDiagnostics,
++    RootRequirements.server.optional.NetworkCommissioning
+   )
+ });
+ Object.freeze(RootEndpointDefinition);
 diff --git a/dist/esm/node/server/ServerSubscription.js b/dist/esm/node/server/ServerSubscription.js
 index 3da9287e7aa8111af3a07e234f0415131eb06304..3b33b278699e4ad0deeef57d2bfd3f84625de2e2 100644
 --- a/dist/esm/node/server/ServerSubscription.js
@@ -125,10 +173,24 @@ index 3da9287e7aa8111af3a07e234f0415131eb06304..3b33b278699e4ad0deeef57d2bfd3f84
          } else {
            StatusResponseError.accept(error);
 diff --git a/src/behaviors/descriptor/DescriptorServer.ts b/src/behaviors/descriptor/DescriptorServer.ts
-index 33cf1714755fc69b0a14cff468bc65a90f9aa9af..d59257a3e3b6ce5e69f062b89cff33d8ca4b6a62 100644
+index 33cf1714755fc69b0a14cff468bc65a90f9aa9af..72397d5a7cf6dd955ce0d26edddc0958fc31d007 100644
 --- a/src/behaviors/descriptor/DescriptorServer.ts
 +++ b/src/behaviors/descriptor/DescriptorServer.ts
-@@ -234,8 +234,11 @@ export class DescriptorServer extends DescriptorBehavior {
+@@ -40,6 +40,13 @@ export class DescriptorServer extends DescriptorBehavior {
+ 
+         // Initialize DeviceTypeList
+         this.#initializeDeviceTypeList();
++
++        // Descriptor attribute 0x0005 (EndpointUniqueId) is optional in spec, but controllers may probe it.
++        // Provide a stable, endpoint-scoped default so reads do not fail with UnsupportedAttribute.
++        const descriptorState = this.state as DescriptorServer.State & { endpointUniqueId?: string };
++        if (descriptorState.endpointUniqueId === undefined) {
++            descriptorState.endpointUniqueId = `endpoint-${this.endpoint.number}`;
++        }
+     }
+ 
+     /** Initialize device type list when it is not already initialized. */
+@@ -234,8 +241,11 @@ export class DescriptorServer extends DescriptorBehavior {
       * Computed current server list.
       */
      get #serverList() {
@@ -141,6 +203,20 @@ index 33cf1714755fc69b0a14cff468bc65a90f9aa9af..d59257a3e3b6ce5e69f062b89cff33d8
              const clusterId = (type as { cluster?: { id?: ClusterId } }).cluster?.id;
              if (clusterId) {
                  list.push(clusterId);
+diff --git a/src/endpoints/root.ts b/src/endpoints/root.ts
+index ebb69192ac499a92f5530ff48ae571d7088ebb72..fabe194a5671cb18d215a4b3aa9cabbe819b87a3 100644
+--- a/src/endpoints/root.ts
++++ b/src/endpoints/root.ts
+@@ -261,7 +261,8 @@ export const RootEndpointDefinition = MutableEndpoint({
+         RootRequirements.server.mandatory.GeneralCommissioning,
+         RootRequirements.server.mandatory.AdministratorCommissioning,
+         RootRequirements.server.mandatory.OperationalCredentials,
+-        RootRequirements.server.mandatory.GeneralDiagnostics
++        RootRequirements.server.mandatory.GeneralDiagnostics,
++        RootRequirements.server.optional.NetworkCommissioning
+     )
+ });
+ 
 diff --git a/src/node/server/ServerSubscription.ts b/src/node/server/ServerSubscription.ts
 index 13953b5a8c9f68e60942e0bebf563eb9ea866d9f..caa1a6502817f4e8f3ac3c998d0b41ee5ac091d0 100644
 --- a/src/node/server/ServerSubscription.ts

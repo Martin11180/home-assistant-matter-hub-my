@@ -1,3 +1,183 @@
+diff --git a/dist/cjs/action/server/AttributeReadResponse.js b/dist/cjs/action/server/AttributeReadResponse.js
+index 9a859be793cff3e4986a47064a618854c9b907ef..9071e96987a2a36b053e84e8ef927a798e84a898 100644
+--- a/dist/cjs/action/server/AttributeReadResponse.js
++++ b/dist/cjs/action/server/AttributeReadResponse.js
+@@ -418,6 +418,85 @@ class AttributeReadResponse extends import_DataResponse.DataResponse {
+     logger.debug(
+       () => `Error reading attribute ${this.node.inspectPath(path)}: Status=${import_types.StatusCode[status]}(${status})`
+     );
++    if (status === import_types.Status.UnsupportedAttribute || status === import_types.Status.UnsupportedCluster) {
++      const endpoint = this.node[path.endpointId];
++      const cluster = endpoint?.[path.clusterId];
++      const attribute = cluster?.type.attributes[path.attributeId];
++      const clusterName = path.clusterId === 48 ? "GeneralCommissioning" : path.clusterId === 49 ? "NetworkCommissioning" : path.clusterId === 70 ? "ICDManagement" : path.clusterId === 42 ? "FixedLabel" : cluster?.type.name ?? "unknown";
++      const attributeName = path.attributeId === 65532 ? "FeatureMap" : path.clusterId === 42 && path.attributeId === 0 ? "labelList" : attribute?.name ?? "unknown";
++      const session = this.session;
++      const asHex = (value) => {
++        if (typeof value === "bigint") return `0x${value.toString(16)}`;
++        if (typeof value === "number" && Number.isFinite(value)) return `0x${value.toString(16)}`;
++        if (typeof value === "string") {
++          if (value.startsWith("0x")) return value;
++          if (/^\d+$/.test(value)) {
++            try {
++              return `0x${BigInt(value).toString(16)}`;
++            } catch {
++              return void 0;
++            }
++          }
++        }
++        return void 0;
++      };
++      const asDisplay = (value) => {
++        if (value === void 0 || value === null) return "unknown";
++        if (typeof value === "string") return value;
++        if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
++        if (typeof value === "object") {
++          try {
++            const json = JSON.stringify(value);
++            if (json && json !== "{}") return json;
++          } catch {
++          }
++          const maybeToString = value.toString?.();
++          if (maybeToString && maybeToString !== "[object Object]") return maybeToString;
++        }
++        return String(value);
++      };
++      const exchangeSession = session.exchange?.session;
++      const via = asDisplay(session.exchange?.via);
++      const viaMatch = via.match(/@([0-9a-fA-F]+):([0-9a-fA-F]+)•([0-9a-fA-F]+)⇵([0-9a-fA-F]+)/);
++      const rawPeerNodeId = viaMatch?.[2] !== void 0 ? `0x${viaMatch[2].toLowerCase()}` : exchangeSession?.peerNodeId !== void 0 ? String(exchangeSession.peerNodeId) : session.peerNodeId !== void 0 ? String(session.peerNodeId) : session.subject?.nodeId !== void 0 ? String(session.subject.nodeId) : "unknown";
++      const rawPeerSessionId = viaMatch?.[3] !== void 0 ? `0x${viaMatch[3].toLowerCase()}` : exchangeSession?.peerSessionId !== void 0 ? String(exchangeSession.peerSessionId) : "unknown";
++      const peerNodeId = rawPeerNodeId === "unknown" ? "unknown" : asHex(rawPeerNodeId) ?? rawPeerNodeId;
++      const peerSessionId = rawPeerSessionId === "unknown" ? "unknown" : asHex(rawPeerSessionId) ?? rawPeerSessionId;
++      const fabricIndex = viaMatch?.[1] !== void 0 ? String(parseInt(viaMatch[1], 16)) : exchangeSession?.fabric?.fabricIndex !== void 0 ? String(exchangeSession.fabric.fabricIndex) : session.fabric !== void 0 ? String(session.fabric) : "unknown";
++      const peerAddress = exchangeSession?.peerAddress !== void 0 && typeof exchangeSession.peerAddress === "object" && "toString" in exchangeSession.peerAddress ? String(exchangeSession.peerAddress.toString()) : session.peerAddress !== void 0 && typeof session.peerAddress === "object" && "toString" in session.peerAddress ? String(session.peerAddress.toString()) : "unknown";
++      let remoteAddress = "unknown";
++      try {
++        remoteAddress = exchangeSession?.channel?.networkAddress !== void 0 ? exchangeSession.channel.networkAddress : exchangeSession?.channel?.name !== void 0 ? exchangeSession.channel.name : session.channel?.networkAddress !== void 0 ? session.channel.networkAddress : session.channel?.name !== void 0 ? session.channel.name : "unknown";
++      } catch {
++        remoteAddress = "unknown";
++      }
++      const remoteAddressText = asDisplay(remoteAddress);
++      const exchangeId = viaMatch?.[4] !== void 0 ? `0x${viaMatch[4].toLowerCase()}` : session.exchange?.id !== void 0 ? asHex(session.exchange.id) ?? String(session.exchange.id) : "unknown";
++      const details = [
++        `op=READ`,
++        `status=${import_types.StatusCode[status]}(${status})`,
++        `endpointId=0x${path.endpointId.toString(16)}(${path.endpointId})`,
++        `endpointName=${endpoint?.name ?? "unknown"}`,
++        `clusterId=0x${path.clusterId.toString(16)}(${path.clusterId})`,
++        `clusterName=${clusterName}`,
++        `attributeId=0x${path.attributeId.toString(16)}(${path.attributeId})`,
++        `attributeName=${attributeName}`,
++        `fabricIndex=${fabricIndex}`,
++        `peerNodeId=${peerNodeId}`,
++        `peerSessionId=${peerSessionId}`,
++        `exchangeId=${exchangeId}`,
++        `via=${via}`,
++        `peerAddress=${peerAddress}`,
++        `remoteAddress=${remoteAddressText}`
++      ];
++      logger.debug(`Attribute access diagnostic: ${details.join(", ")}`);
++      if (peerNodeId === "unknown" && peerSessionId === "unknown" && peerAddress === "unknown" && remoteAddress === "unknown") {
++        logger.debug("peer context unavailable at attribute-response diagnostic point");
++      }
++      if (path.clusterId === 29 && path.attributeId === 5) {
++        logger.debug("Controller probed unsupported Descriptor attribute 0x0005");
++      }
++    }
+     const report = {
+       kind: "attr-status",
+       path,
+diff --git a/dist/cjs/action/server/AttributeWriteResponse.js b/dist/cjs/action/server/AttributeWriteResponse.js
+index 6d9d1676ce188a7391186f29186d028cead66770..1b41cf895c49dc4e81bccaba8d04767470a13e7e 100644
+--- a/dist/cjs/action/server/AttributeWriteResponse.js
++++ b/dist/cjs/action/server/AttributeWriteResponse.js
+@@ -351,6 +351,85 @@ class AttributeWriteResponse extends import_DataResponse.DataResponse {
+       logger.debug(
+         () => `Error writing attribute ${this.node.inspectPath(path)}: Status=${import_types.StatusCode[status]}(${(0, import_general.toHex)(status)}), ClusterStatus=${clusterStatus !== void 0 ? (0, import_general.toHex)(clusterStatus) : void 0}`
+       );
++      if (status === import_types.Status.UnsupportedAttribute || status === import_types.Status.UnsupportedCluster) {
++        const endpoint = this.node[path.endpointId];
++        const cluster = endpoint?.[path.clusterId];
++        const attribute = cluster?.type.attributes[path.attributeId];
++        const clusterName = path.clusterId === 48 ? "GeneralCommissioning" : path.clusterId === 49 ? "NetworkCommissioning" : path.clusterId === 70 ? "ICDManagement" : path.clusterId === 42 ? "FixedLabel" : cluster?.type.name ?? "unknown";
++        const attributeName = path.attributeId === 65532 ? "FeatureMap" : path.clusterId === 42 && path.attributeId === 0 ? "labelList" : attribute?.name ?? "unknown";
++        const session = this.session;
++        const asHex = (value) => {
++          if (typeof value === "bigint") return `0x${value.toString(16)}`;
++          if (typeof value === "number" && Number.isFinite(value)) return `0x${value.toString(16)}`;
++          if (typeof value === "string") {
++            if (value.startsWith("0x")) return value;
++            if (/^\d+$/.test(value)) {
++              try {
++                return `0x${BigInt(value).toString(16)}`;
++              } catch {
++                return void 0;
++              }
++            }
++          }
++          return void 0;
++        };
++        const asDisplay = (value) => {
++          if (value === void 0 || value === null) return "unknown";
++          if (typeof value === "string") return value;
++          if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
++          if (typeof value === "object") {
++            try {
++              const json = JSON.stringify(value);
++              if (json && json !== "{}") return json;
++            } catch {
++            }
++            const maybeToString = value.toString?.();
++            if (maybeToString && maybeToString !== "[object Object]") return maybeToString;
++          }
++          return String(value);
++        };
++        const exchangeSession = session.exchange?.session;
++        const via = asDisplay(session.exchange?.via);
++        const viaMatch = via.match(/@([0-9a-fA-F]+):([0-9a-fA-F]+)•([0-9a-fA-F]+)⇵([0-9a-fA-F]+)/);
++        const rawPeerNodeId = viaMatch?.[2] !== void 0 ? `0x${viaMatch[2].toLowerCase()}` : exchangeSession?.peerNodeId !== void 0 ? String(exchangeSession.peerNodeId) : session.peerNodeId !== void 0 ? String(session.peerNodeId) : session.subject?.nodeId !== void 0 ? String(session.subject.nodeId) : "unknown";
++        const rawPeerSessionId = viaMatch?.[3] !== void 0 ? `0x${viaMatch[3].toLowerCase()}` : exchangeSession?.peerSessionId !== void 0 ? String(exchangeSession.peerSessionId) : "unknown";
++        const peerNodeId = rawPeerNodeId === "unknown" ? "unknown" : asHex(rawPeerNodeId) ?? rawPeerNodeId;
++        const peerSessionId = rawPeerSessionId === "unknown" ? "unknown" : asHex(rawPeerSessionId) ?? rawPeerSessionId;
++        const fabricIndex = viaMatch?.[1] !== void 0 ? String(parseInt(viaMatch[1], 16)) : exchangeSession?.fabric?.fabricIndex !== void 0 ? String(exchangeSession.fabric.fabricIndex) : session.fabric !== void 0 ? String(session.fabric) : "unknown";
++        const peerAddress = exchangeSession?.peerAddress !== void 0 && typeof exchangeSession.peerAddress === "object" && "toString" in exchangeSession.peerAddress ? String(exchangeSession.peerAddress.toString()) : session.peerAddress !== void 0 && typeof session.peerAddress === "object" && "toString" in session.peerAddress ? String(session.peerAddress.toString()) : "unknown";
++        let remoteAddress = "unknown";
++        try {
++          remoteAddress = exchangeSession?.channel?.networkAddress !== void 0 ? exchangeSession.channel.networkAddress : exchangeSession?.channel?.name !== void 0 ? exchangeSession.channel.name : session.channel?.networkAddress !== void 0 ? session.channel.networkAddress : session.channel?.name !== void 0 ? session.channel.name : "unknown";
++        } catch {
++          remoteAddress = "unknown";
++        }
++        const remoteAddressText = asDisplay(remoteAddress);
++        const exchangeId = viaMatch?.[4] !== void 0 ? `0x${viaMatch[4].toLowerCase()}` : session.exchange?.id !== void 0 ? asHex(session.exchange.id) ?? String(session.exchange.id) : "unknown";
++        const details = [
++          `op=WRITE`,
++          `status=${import_types.StatusCode[status]}(${status})`,
++          `endpointId=0x${path.endpointId.toString(16)}(${path.endpointId})`,
++          `endpointName=${endpoint?.name ?? "unknown"}`,
++          `clusterId=0x${path.clusterId.toString(16)}(${path.clusterId})`,
++          `clusterName=${clusterName}`,
++          `attributeId=0x${path.attributeId.toString(16)}(${path.attributeId})`,
++          `attributeName=${attributeName}`,
++          `fabricIndex=${fabricIndex}`,
++          `peerNodeId=${peerNodeId}`,
++          `peerSessionId=${peerSessionId}`,
++          `exchangeId=${exchangeId}`,
++          `via=${via}`,
++          `peerAddress=${peerAddress}`,
++          `remoteAddress=${remoteAddressText}`
++        ];
++        logger.debug(`Attribute access diagnostic: ${details.join(", ")}`);
++        if (peerNodeId === "unknown" && peerSessionId === "unknown" && peerAddress === "unknown" && remoteAddress === "unknown") {
++          logger.debug("peer context unavailable at attribute-response diagnostic point");
++        }
++        if (path.clusterId === 29 && path.attributeId === 5) {
++          logger.debug("Controller probed unsupported Descriptor attribute 0x0005");
++        }
++      }
+     }
+     const report = {
+       kind: "attr-status",
 diff --git a/dist/cjs/certificate/kinds/OperationalBase.js b/dist/cjs/certificate/kinds/OperationalBase.js
 index 76e49221732642f933a1a776af45137c67dab5e2..f9e43bb3bd0d73d5f83c45b70b6ec2f04cab8717 100644
 --- a/dist/cjs/certificate/kinds/OperationalBase.js
@@ -121,6 +301,186 @@ index eba2665e872fe89e13ef175fd30d1732c530ecc5..792eab9c9d48dd5e5981beec46028822
      this.#observers.close();
      await this.clearAdvertisers();
    }
+diff --git a/dist/esm/action/server/AttributeReadResponse.js b/dist/esm/action/server/AttributeReadResponse.js
+index 0d6090fb82807ac9c3b44210d940ddb42175f8ad..2554ca616814c27a328f69afda7c217552fca12f 100644
+--- a/dist/esm/action/server/AttributeReadResponse.js
++++ b/dist/esm/action/server/AttributeReadResponse.js
+@@ -400,6 +400,85 @@ class AttributeReadResponse extends DataResponse {
+     logger.debug(
+       () => `Error reading attribute ${this.node.inspectPath(path)}: Status=${StatusCode[status]}(${status})`
+     );
++    if (status === Status.UnsupportedAttribute || status === Status.UnsupportedCluster) {
++      const endpoint = this.node[path.endpointId];
++      const cluster = endpoint?.[path.clusterId];
++      const attribute = cluster?.type.attributes[path.attributeId];
++      const clusterName = path.clusterId === 48 ? "GeneralCommissioning" : path.clusterId === 49 ? "NetworkCommissioning" : path.clusterId === 70 ? "ICDManagement" : path.clusterId === 42 ? "FixedLabel" : cluster?.type.name ?? "unknown";
++      const attributeName = path.attributeId === 65532 ? "FeatureMap" : path.clusterId === 42 && path.attributeId === 0 ? "labelList" : attribute?.name ?? "unknown";
++      const session = this.session;
++      const asHex = (value) => {
++        if (typeof value === "bigint") return `0x${value.toString(16)}`;
++        if (typeof value === "number" && Number.isFinite(value)) return `0x${value.toString(16)}`;
++        if (typeof value === "string") {
++          if (value.startsWith("0x")) return value;
++          if (/^\d+$/.test(value)) {
++            try {
++              return `0x${BigInt(value).toString(16)}`;
++            } catch {
++              return void 0;
++            }
++          }
++        }
++        return void 0;
++      };
++      const asDisplay = (value) => {
++        if (value === void 0 || value === null) return "unknown";
++        if (typeof value === "string") return value;
++        if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
++        if (typeof value === "object") {
++          try {
++            const json = JSON.stringify(value);
++            if (json && json !== "{}") return json;
++          } catch {
++          }
++          const maybeToString = value.toString?.();
++          if (maybeToString && maybeToString !== "[object Object]") return maybeToString;
++        }
++        return String(value);
++      };
++      const exchangeSession = session.exchange?.session;
++      const via = asDisplay(session.exchange?.via);
++      const viaMatch = via.match(/@([0-9a-fA-F]+):([0-9a-fA-F]+)•([0-9a-fA-F]+)⇵([0-9a-fA-F]+)/);
++      const rawPeerNodeId = viaMatch?.[2] !== void 0 ? `0x${viaMatch[2].toLowerCase()}` : exchangeSession?.peerNodeId !== void 0 ? String(exchangeSession.peerNodeId) : session.peerNodeId !== void 0 ? String(session.peerNodeId) : session.subject?.nodeId !== void 0 ? String(session.subject.nodeId) : "unknown";
++      const rawPeerSessionId = viaMatch?.[3] !== void 0 ? `0x${viaMatch[3].toLowerCase()}` : exchangeSession?.peerSessionId !== void 0 ? String(exchangeSession.peerSessionId) : "unknown";
++      const peerNodeId = rawPeerNodeId === "unknown" ? "unknown" : asHex(rawPeerNodeId) ?? rawPeerNodeId;
++      const peerSessionId = rawPeerSessionId === "unknown" ? "unknown" : asHex(rawPeerSessionId) ?? rawPeerSessionId;
++      const fabricIndex = viaMatch?.[1] !== void 0 ? String(parseInt(viaMatch[1], 16)) : exchangeSession?.fabric?.fabricIndex !== void 0 ? String(exchangeSession.fabric.fabricIndex) : session.fabric !== void 0 ? String(session.fabric) : "unknown";
++      const peerAddress = exchangeSession?.peerAddress !== void 0 && typeof exchangeSession.peerAddress === "object" && "toString" in exchangeSession.peerAddress ? String(exchangeSession.peerAddress.toString()) : session.peerAddress !== void 0 && typeof session.peerAddress === "object" && "toString" in session.peerAddress ? String(session.peerAddress.toString()) : "unknown";
++      let remoteAddress = "unknown";
++      try {
++        remoteAddress = exchangeSession?.channel?.networkAddress !== void 0 ? exchangeSession.channel.networkAddress : exchangeSession?.channel?.name !== void 0 ? exchangeSession.channel.name : session.channel?.networkAddress !== void 0 ? session.channel.networkAddress : session.channel?.name !== void 0 ? session.channel.name : "unknown";
++      } catch {
++        remoteAddress = "unknown";
++      }
++      const remoteAddressText = asDisplay(remoteAddress);
++      const exchangeId = viaMatch?.[4] !== void 0 ? `0x${viaMatch[4].toLowerCase()}` : session.exchange?.id !== void 0 ? asHex(session.exchange.id) ?? String(session.exchange.id) : "unknown";
++      const details = [
++        `op=READ`,
++        `status=${StatusCode[status]}(${status})`,
++        `endpointId=0x${path.endpointId.toString(16)}(${path.endpointId})`,
++        `endpointName=${endpoint?.name ?? "unknown"}`,
++        `clusterId=0x${path.clusterId.toString(16)}(${path.clusterId})`,
++        `clusterName=${clusterName}`,
++        `attributeId=0x${path.attributeId.toString(16)}(${path.attributeId})`,
++        `attributeName=${attributeName}`,
++        `fabricIndex=${fabricIndex}`,
++        `peerNodeId=${peerNodeId}`,
++        `peerSessionId=${peerSessionId}`,
++        `exchangeId=${exchangeId}`,
++        `via=${via}`,
++        `peerAddress=${peerAddress}`,
++        `remoteAddress=${remoteAddressText}`
++      ];
++      logger.debug(`Attribute access diagnostic: ${details.join(", ")}`);
++      if (peerNodeId === "unknown" && peerSessionId === "unknown" && peerAddress === "unknown" && remoteAddress === "unknown") {
++        logger.debug("peer context unavailable at attribute-response diagnostic point");
++      }
++      if (path.clusterId === 29 && path.attributeId === 5) {
++        logger.debug("Controller probed unsupported Descriptor attribute 0x0005");
++      }
++    }
+     const report = {
+       kind: "attr-status",
+       path,
+diff --git a/dist/esm/action/server/AttributeWriteResponse.js b/dist/esm/action/server/AttributeWriteResponse.js
+index 730f050ee12e4381f82a2c6c31c700ba25efa022..0768afb403ff14ccd36b9418ab6a437d1810bb4c 100644
+--- a/dist/esm/action/server/AttributeWriteResponse.js
++++ b/dist/esm/action/server/AttributeWriteResponse.js
+@@ -334,6 +334,85 @@ class AttributeWriteResponse extends DataResponse {
+       logger.debug(
+         () => `Error writing attribute ${this.node.inspectPath(path)}: Status=${StatusCode[status]}(${toHex(status)}), ClusterStatus=${clusterStatus !== void 0 ? toHex(clusterStatus) : void 0}`
+       );
++      if (status === Status.UnsupportedAttribute || status === Status.UnsupportedCluster) {
++        const endpoint = this.node[path.endpointId];
++        const cluster = endpoint?.[path.clusterId];
++        const attribute = cluster?.type.attributes[path.attributeId];
++        const clusterName = path.clusterId === 48 ? "GeneralCommissioning" : path.clusterId === 49 ? "NetworkCommissioning" : path.clusterId === 70 ? "ICDManagement" : path.clusterId === 42 ? "FixedLabel" : cluster?.type.name ?? "unknown";
++        const attributeName = path.attributeId === 65532 ? "FeatureMap" : path.clusterId === 42 && path.attributeId === 0 ? "labelList" : attribute?.name ?? "unknown";
++        const session = this.session;
++        const asHex = (value) => {
++          if (typeof value === "bigint") return `0x${value.toString(16)}`;
++          if (typeof value === "number" && Number.isFinite(value)) return `0x${value.toString(16)}`;
++          if (typeof value === "string") {
++            if (value.startsWith("0x")) return value;
++            if (/^\d+$/.test(value)) {
++              try {
++                return `0x${BigInt(value).toString(16)}`;
++              } catch {
++                return void 0;
++              }
++            }
++          }
++          return void 0;
++        };
++        const asDisplay = (value) => {
++          if (value === void 0 || value === null) return "unknown";
++          if (typeof value === "string") return value;
++          if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
++          if (typeof value === "object") {
++            try {
++              const json = JSON.stringify(value);
++              if (json && json !== "{}") return json;
++            } catch {
++            }
++            const maybeToString = value.toString?.();
++            if (maybeToString && maybeToString !== "[object Object]") return maybeToString;
++          }
++          return String(value);
++        };
++        const exchangeSession = session.exchange?.session;
++        const via = asDisplay(session.exchange?.via);
++        const viaMatch = via.match(/@([0-9a-fA-F]+):([0-9a-fA-F]+)•([0-9a-fA-F]+)⇵([0-9a-fA-F]+)/);
++        const rawPeerNodeId = viaMatch?.[2] !== void 0 ? `0x${viaMatch[2].toLowerCase()}` : exchangeSession?.peerNodeId !== void 0 ? String(exchangeSession.peerNodeId) : session.peerNodeId !== void 0 ? String(session.peerNodeId) : session.subject?.nodeId !== void 0 ? String(session.subject.nodeId) : "unknown";
++        const rawPeerSessionId = viaMatch?.[3] !== void 0 ? `0x${viaMatch[3].toLowerCase()}` : exchangeSession?.peerSessionId !== void 0 ? String(exchangeSession.peerSessionId) : "unknown";
++        const peerNodeId = rawPeerNodeId === "unknown" ? "unknown" : asHex(rawPeerNodeId) ?? rawPeerNodeId;
++        const peerSessionId = rawPeerSessionId === "unknown" ? "unknown" : asHex(rawPeerSessionId) ?? rawPeerSessionId;
++        const fabricIndex = viaMatch?.[1] !== void 0 ? String(parseInt(viaMatch[1], 16)) : exchangeSession?.fabric?.fabricIndex !== void 0 ? String(exchangeSession.fabric.fabricIndex) : session.fabric !== void 0 ? String(session.fabric) : "unknown";
++        const peerAddress = exchangeSession?.peerAddress !== void 0 && typeof exchangeSession.peerAddress === "object" && "toString" in exchangeSession.peerAddress ? String(exchangeSession.peerAddress.toString()) : session.peerAddress !== void 0 && typeof session.peerAddress === "object" && "toString" in session.peerAddress ? String(session.peerAddress.toString()) : "unknown";
++        let remoteAddress = "unknown";
++        try {
++          remoteAddress = exchangeSession?.channel?.networkAddress !== void 0 ? exchangeSession.channel.networkAddress : exchangeSession?.channel?.name !== void 0 ? exchangeSession.channel.name : session.channel?.networkAddress !== void 0 ? session.channel.networkAddress : session.channel?.name !== void 0 ? session.channel.name : "unknown";
++        } catch {
++          remoteAddress = "unknown";
++        }
++        const remoteAddressText = asDisplay(remoteAddress);
++        const exchangeId = viaMatch?.[4] !== void 0 ? `0x${viaMatch[4].toLowerCase()}` : session.exchange?.id !== void 0 ? asHex(session.exchange.id) ?? String(session.exchange.id) : "unknown";
++        const details = [
++          `op=WRITE`,
++          `status=${StatusCode[status]}(${status})`,
++          `endpointId=0x${path.endpointId.toString(16)}(${path.endpointId})`,
++          `endpointName=${endpoint?.name ?? "unknown"}`,
++          `clusterId=0x${path.clusterId.toString(16)}(${path.clusterId})`,
++          `clusterName=${clusterName}`,
++          `attributeId=0x${path.attributeId.toString(16)}(${path.attributeId})`,
++          `attributeName=${attributeName}`,
++          `fabricIndex=${fabricIndex}`,
++          `peerNodeId=${peerNodeId}`,
++          `peerSessionId=${peerSessionId}`,
++          `exchangeId=${exchangeId}`,
++          `via=${via}`,
++          `peerAddress=${peerAddress}`,
++          `remoteAddress=${remoteAddressText}`
++        ];
++        logger.debug(`Attribute access diagnostic: ${details.join(", ")}`);
++        if (peerNodeId === "unknown" && peerSessionId === "unknown" && peerAddress === "unknown" && remoteAddress === "unknown") {
++          logger.debug("peer context unavailable at attribute-response diagnostic point");
++        }
++        if (path.clusterId === 29 && path.attributeId === 5) {
++          logger.debug("Controller probed unsupported Descriptor attribute 0x0005");
++        }
++      }
+     }
+     const report = {
+       kind: "attr-status",
 diff --git a/dist/esm/certificate/kinds/OperationalBase.js b/dist/esm/certificate/kinds/OperationalBase.js
 index 59ee05a68e2e26fc19d68587d1476031ac6d46b0..541cee8e40605f312a27f49e9ba5e2311eb61ec9 100644
 --- a/dist/esm/certificate/kinds/OperationalBase.js
@@ -244,6 +604,388 @@ index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..1955a6e7c897d3d691fa158c7dbb74de
      this.#observers.close();
      await this.clearAdvertisers();
    }
+diff --git a/src/action/server/AttributeReadResponse.ts b/src/action/server/AttributeReadResponse.ts
+index 47d3d05e3b314e20b32145aae8f8bfc6508ac58c..f8dc4745710c5bfdd1781cfcaec78cac01ae74d6 100644
+--- a/src/action/server/AttributeReadResponse.ts
++++ b/src/action/server/AttributeReadResponse.ts
+@@ -443,6 +443,186 @@ export class AttributeReadResponse<
+         logger.debug(
+             () => `Error reading attribute ${this.node.inspectPath(path)}: Status=${StatusCode[status]}(${status})`,
+         );
++        if (status === Status.UnsupportedAttribute || status === Status.UnsupportedCluster) {
++            const endpoint = this.node[path.endpointId];
++            const cluster = endpoint?.[path.clusterId];
++            const attribute = cluster?.type.attributes[path.attributeId];
++            const clusterName =
++                path.clusterId === 0x0030
++                    ? "GeneralCommissioning"
++                    : path.clusterId === 0x0031
++                      ? "NetworkCommissioning"
++                    : path.clusterId === 0x0046
++                      ? "ICDManagement"
++                      : path.clusterId === 0x002a
++                        ? "FixedLabel"
++                        : (cluster?.type.name ?? "unknown");
++            const attributeName =
++                path.attributeId === 0xfffc
++                    ? "FeatureMap"
++                    : path.clusterId === 0x002a && path.attributeId === 0x0000
++                      ? "labelList"
++                      : (attribute?.name ?? "unknown");
++            const session = this.session as {
++                fabric?: unknown;
++                peerNodeId?: unknown;
++                peerSessionId?: unknown;
++                peerAddress?: { toString?: () => string } | unknown;
++                channel?: { name?: unknown; networkAddress?: unknown };
++                subject?: { nodeId?: unknown };
++                exchange?: {
++                    id?: number;
++                    session?: {
++                        peerNodeId?: unknown;
++                        peerSessionId?: unknown;
++                        peerAddress?: { toString?: () => string } | unknown;
++                        channel?: { name?: unknown; networkAddress?: unknown };
++                        fabric?: { fabricIndex?: unknown };
++                    };
++                };
++            };
++            const asHex = (value: unknown): string | undefined => {
++                if (typeof value === "bigint") return `0x${value.toString(16)}`;
++                if (typeof value === "number" && Number.isFinite(value)) return `0x${value.toString(16)}`;
++                if (typeof value === "string") {
++                    if (value.startsWith("0x")) return value;
++                    if (/^\d+$/.test(value)) {
++                        try {
++                            return `0x${BigInt(value).toString(16)}`;
++                        } catch {
++                            return undefined;
++                        }
++                    }
++                }
++                return undefined;
++            };
++            const asDisplay = (value: unknown): string => {
++                if (value === undefined || value === null) return "unknown";
++                if (typeof value === "string") return value;
++                if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
++                    return String(value);
++                }
++                if (typeof value === "object") {
++                    try {
++                        const json = JSON.stringify(value);
++                        if (json && json !== "{}") return json;
++                    } catch {
++                        // ignore
++                    }
++                    const maybeToString = (value as { toString?: () => string }).toString?.();
++                    if (maybeToString && maybeToString !== "[object Object]") return maybeToString;
++                }
++                return String(value);
++            };
++            const exchangeSession = session.exchange?.session;
++            const via = asDisplay((session.exchange as { via?: unknown } | undefined)?.via);
++            const viaMatch = via.match(/@([0-9a-fA-F]+):([0-9a-fA-F]+)•([0-9a-fA-F]+)⇵([0-9a-fA-F]+)/);
++            const rawPeerNodeId =
++                viaMatch?.[2] !== undefined
++                    ? `0x${viaMatch[2].toLowerCase()}`
++                    : exchangeSession?.peerNodeId !== undefined
++                    ? String(exchangeSession.peerNodeId)
++                    : session.peerNodeId !== undefined
++                    ? String(session.peerNodeId)
++                    : session.subject?.nodeId !== undefined
++                      ? String(session.subject.nodeId)
++                      : "unknown";
++            const rawPeerSessionId =
++                viaMatch?.[3] !== undefined
++                    ? `0x${viaMatch[3].toLowerCase()}`
++                    : exchangeSession?.peerSessionId !== undefined
++                    ? String(exchangeSession.peerSessionId)
++                    : "unknown";
++            const peerNodeId = rawPeerNodeId === "unknown" ? "unknown" : (asHex(rawPeerNodeId) ?? rawPeerNodeId);
++            const peerSessionId =
++                rawPeerSessionId === "unknown" ? "unknown" : (asHex(rawPeerSessionId) ?? rawPeerSessionId);
++            const fabricIndex =
++                viaMatch?.[1] !== undefined
++                    ? String(parseInt(viaMatch[1], 16))
++                    : exchangeSession?.fabric?.fabricIndex !== undefined
++                    ? String(exchangeSession.fabric.fabricIndex)
++                    : session.fabric !== undefined
++                      ? String(session.fabric)
++                      : "unknown";
++            const peerAddress =
++                exchangeSession?.peerAddress !== undefined &&
++                typeof exchangeSession.peerAddress === "object" &&
++                "toString" in exchangeSession.peerAddress
++                    ? String(exchangeSession.peerAddress.toString())
++                    : session.peerAddress !== undefined &&
++                        typeof session.peerAddress === "object" &&
++                        "toString" in session.peerAddress
++                      ? String(session.peerAddress.toString())
++                      : "unknown";
++            let remoteAddress: unknown = "unknown";
++            try {
++                remoteAddress =
++                    exchangeSession?.channel?.networkAddress !== undefined
++                        ? exchangeSession.channel.networkAddress
++                        : exchangeSession?.channel?.name !== undefined
++                          ? exchangeSession.channel.name
++                          : session.channel?.networkAddress !== undefined
++                            ? session.channel.networkAddress
++                            : session.channel?.name !== undefined
++                              ? session.channel.name
++                              : "unknown";
++            } catch {
++                remoteAddress = "unknown";
++            }
++            const remoteAddressText = asDisplay(remoteAddress);
++            const exchangeId =
++                viaMatch?.[4] !== undefined
++                    ? `0x${viaMatch[4].toLowerCase()}`
++                    : session.exchange?.id !== undefined
++                    ? (asHex(session.exchange.id) ?? String(session.exchange.id))
++                    : "unknown";
++            const details = [
++                `op=READ`,
++                `status=${StatusCode[status]}(${status})`,
++                `endpointId=0x${path.endpointId.toString(16)}(${path.endpointId})`,
++                `endpointName=${endpoint?.name ?? "unknown"}`,
++                `clusterId=0x${path.clusterId.toString(16)}(${path.clusterId})`,
++                `clusterName=${clusterName}`,
++                `attributeId=0x${path.attributeId.toString(16)}(${path.attributeId})`,
++                `attributeName=${attributeName}`,
++                `fabricIndex=${fabricIndex}`,
++                `peerNodeId=${peerNodeId}`,
++                `peerSessionId=${peerSessionId}`,
++                `exchangeId=${exchangeId}`,
++                `via=${via}`,
++                `peerAddress=${peerAddress}`,
++                `remoteAddress=${remoteAddressText}`,
++            ];
++            logger.debug(
++                `Attribute diagnostic raw context: ${[
++                    `typeofSession=${typeof this.session}`,
++                    `sessionKeys=${Object.keys((this.session as object | undefined) ?? {}).join("|")}`,
++                    `sessionToString=${(session as { toString?: () => string }).toString?.() ?? "n/a"}`,
++                    `exchangeToString=${(session.exchange as { toString?: () => string } | undefined)?.toString?.() ?? "n/a"}`,
++                    `exchangeKeys=${Object.keys((session.exchange as object | undefined) ?? {}).join("|")}`,
++                    `exchangeSessionKeys=${Object.keys((session.exchange?.session as object | undefined) ?? {}).join("|")}`,
++                    `exchangeId=${String(session.exchange?.id ?? "unknown")}`,
++                    `exchangePeerNodeId=${String(session.exchange?.session?.peerNodeId ?? "unknown")}`,
++                    `exchangePeerSessionId=${String(session.exchange?.session?.peerSessionId ?? "unknown")}`,
++                    `exchangeFabricIndex=${String(session.exchange?.session?.fabric?.fabricIndex ?? "unknown")}`,
++                    `exchangeAddress=${String((session.exchange?.session as { address?: unknown } | undefined)?.address ?? "unknown")}`,
++                `exchangePeerAddress=${String(session.exchange?.session?.peerAddress ?? "unknown")}`,
++                    `exchangeChannel=${asDisplay(session.exchange?.session?.channel ?? "unknown")}`,
++                ].join(", ")}`,
++            );
++            logger.debug(`Attribute access diagnostic: ${details.join(", ")}`);
++            if (
++                peerNodeId === "unknown" &&
++                peerSessionId === "unknown" &&
++                peerAddress === "unknown" &&
++                remoteAddress === "unknown"
++            ) {
++                logger.debug("peer context unavailable at attribute-response diagnostic point");
++            }
++            if (path.clusterId === 0x001d && path.attributeId === 0x0005) {
++                logger.debug("Controller probed unsupported Descriptor attribute 0x0005");
++            }
++        }
+ 
+         const report: ReadResult.AttributeStatus = {
+             kind: "attr-status",
+diff --git a/src/action/server/AttributeWriteResponse.ts b/src/action/server/AttributeWriteResponse.ts
+index 6f09c5e9c318784972791e7aeeed2252aad70407..11906e1485839b478a6f8862e82561afcb97f303 100644
+--- a/src/action/server/AttributeWriteResponse.ts
++++ b/src/action/server/AttributeWriteResponse.ts
+@@ -364,6 +364,186 @@ export class AttributeWriteResponse<
+                 () =>
+                     `Error writing attribute ${this.node.inspectPath(path)}: Status=${StatusCode[status]}(${toHex(status)}), ClusterStatus=${clusterStatus !== undefined ? toHex(clusterStatus) : undefined}`,
+             );
++            if (status === Status.UnsupportedAttribute || status === Status.UnsupportedCluster) {
++                const endpoint = this.node[path.endpointId];
++                const cluster = endpoint?.[path.clusterId];
++                const attribute = cluster?.type.attributes[path.attributeId];
++                const clusterName =
++                    path.clusterId === 0x0030
++                        ? "GeneralCommissioning"
++                        : path.clusterId === 0x0031
++                          ? "NetworkCommissioning"
++                        : path.clusterId === 0x0046
++                          ? "ICDManagement"
++                          : path.clusterId === 0x002a
++                            ? "FixedLabel"
++                            : (cluster?.type.name ?? "unknown");
++                const attributeName =
++                    path.attributeId === 0xfffc
++                        ? "FeatureMap"
++                        : path.clusterId === 0x002a && path.attributeId === 0x0000
++                          ? "labelList"
++                          : (attribute?.name ?? "unknown");
++                const session = this.session as {
++                    fabric?: unknown;
++                    peerNodeId?: unknown;
++                    peerSessionId?: unknown;
++                    peerAddress?: { toString?: () => string } | unknown;
++                    channel?: { name?: unknown; networkAddress?: unknown };
++                    subject?: { nodeId?: unknown };
++                    exchange?: {
++                        id?: number;
++                        session?: {
++                            peerNodeId?: unknown;
++                            peerSessionId?: unknown;
++                            peerAddress?: { toString?: () => string } | unknown;
++                            channel?: { name?: unknown; networkAddress?: unknown };
++                            fabric?: { fabricIndex?: unknown };
++                        };
++                    };
++                };
++                const asHex = (value: unknown): string | undefined => {
++                    if (typeof value === "bigint") return `0x${value.toString(16)}`;
++                    if (typeof value === "number" && Number.isFinite(value)) return `0x${value.toString(16)}`;
++                    if (typeof value === "string") {
++                        if (value.startsWith("0x")) return value;
++                        if (/^\d+$/.test(value)) {
++                            try {
++                                return `0x${BigInt(value).toString(16)}`;
++                            } catch {
++                                return undefined;
++                            }
++                        }
++                    }
++                    return undefined;
++                };
++                const asDisplay = (value: unknown): string => {
++                    if (value === undefined || value === null) return "unknown";
++                    if (typeof value === "string") return value;
++                    if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
++                        return String(value);
++                    }
++                    if (typeof value === "object") {
++                        try {
++                            const json = JSON.stringify(value);
++                            if (json && json !== "{}") return json;
++                        } catch {
++                            // ignore
++                        }
++                        const maybeToString = (value as { toString?: () => string }).toString?.();
++                        if (maybeToString && maybeToString !== "[object Object]") return maybeToString;
++                    }
++                    return String(value);
++                };
++                const exchangeSession = session.exchange?.session;
++                const via = asDisplay((session.exchange as { via?: unknown } | undefined)?.via);
++                const viaMatch = via.match(/@([0-9a-fA-F]+):([0-9a-fA-F]+)•([0-9a-fA-F]+)⇵([0-9a-fA-F]+)/);
++                const rawPeerNodeId =
++                    viaMatch?.[2] !== undefined
++                        ? `0x${viaMatch[2].toLowerCase()}`
++                        : exchangeSession?.peerNodeId !== undefined
++                        ? String(exchangeSession.peerNodeId)
++                        : session.peerNodeId !== undefined
++                        ? String(session.peerNodeId)
++                        : session.subject?.nodeId !== undefined
++                          ? String(session.subject.nodeId)
++                          : "unknown";
++                const rawPeerSessionId =
++                    viaMatch?.[3] !== undefined
++                        ? `0x${viaMatch[3].toLowerCase()}`
++                        : exchangeSession?.peerSessionId !== undefined
++                        ? String(exchangeSession.peerSessionId)
++                        : "unknown";
++                const peerNodeId = rawPeerNodeId === "unknown" ? "unknown" : (asHex(rawPeerNodeId) ?? rawPeerNodeId);
++                const peerSessionId =
++                    rawPeerSessionId === "unknown" ? "unknown" : (asHex(rawPeerSessionId) ?? rawPeerSessionId);
++                const fabricIndex =
++                    viaMatch?.[1] !== undefined
++                        ? String(parseInt(viaMatch[1], 16))
++                        : exchangeSession?.fabric?.fabricIndex !== undefined
++                        ? String(exchangeSession.fabric.fabricIndex)
++                        : session.fabric !== undefined
++                          ? String(session.fabric)
++                          : "unknown";
++                const peerAddress =
++                    exchangeSession?.peerAddress !== undefined &&
++                    typeof exchangeSession.peerAddress === "object" &&
++                    "toString" in exchangeSession.peerAddress
++                        ? String(exchangeSession.peerAddress.toString())
++                        : session.peerAddress !== undefined &&
++                            typeof session.peerAddress === "object" &&
++                            "toString" in session.peerAddress
++                          ? String(session.peerAddress.toString())
++                          : "unknown";
++                let remoteAddress: unknown = "unknown";
++                try {
++                    remoteAddress =
++                        exchangeSession?.channel?.networkAddress !== undefined
++                            ? exchangeSession.channel.networkAddress
++                            : exchangeSession?.channel?.name !== undefined
++                              ? exchangeSession.channel.name
++                              : session.channel?.networkAddress !== undefined
++                                ? session.channel.networkAddress
++                                : session.channel?.name !== undefined
++                                  ? session.channel.name
++                                  : "unknown";
++                } catch {
++                    remoteAddress = "unknown";
++                }
++                const remoteAddressText = asDisplay(remoteAddress);
++                const exchangeId =
++                    viaMatch?.[4] !== undefined
++                        ? `0x${viaMatch[4].toLowerCase()}`
++                        : session.exchange?.id !== undefined
++                        ? (asHex(session.exchange.id) ?? String(session.exchange.id))
++                        : "unknown";
++                const details = [
++                    `op=WRITE`,
++                    `status=${StatusCode[status]}(${status})`,
++                    `endpointId=0x${path.endpointId.toString(16)}(${path.endpointId})`,
++                    `endpointName=${endpoint?.name ?? "unknown"}`,
++                    `clusterId=0x${path.clusterId.toString(16)}(${path.clusterId})`,
++                    `clusterName=${clusterName}`,
++                    `attributeId=0x${path.attributeId.toString(16)}(${path.attributeId})`,
++                    `attributeName=${attributeName}`,
++                    `fabricIndex=${fabricIndex}`,
++                    `peerNodeId=${peerNodeId}`,
++                    `peerSessionId=${peerSessionId}`,
++                    `exchangeId=${exchangeId}`,
++                    `via=${via}`,
++                    `peerAddress=${peerAddress}`,
++                    `remoteAddress=${remoteAddressText}`,
++                ];
++                logger.debug(
++                    `Attribute diagnostic raw context: ${[
++                        `typeofSession=${typeof this.session}`,
++                        `sessionKeys=${Object.keys((this.session as object | undefined) ?? {}).join("|")}`,
++                        `sessionToString=${(session as { toString?: () => string }).toString?.() ?? "n/a"}`,
++                        `exchangeToString=${(session.exchange as { toString?: () => string } | undefined)?.toString?.() ?? "n/a"}`,
++                        `exchangeKeys=${Object.keys((session.exchange as object | undefined) ?? {}).join("|")}`,
++                        `exchangeSessionKeys=${Object.keys((session.exchange?.session as object | undefined) ?? {}).join("|")}`,
++                        `exchangeId=${String(session.exchange?.id ?? "unknown")}`,
++                        `exchangePeerNodeId=${String(session.exchange?.session?.peerNodeId ?? "unknown")}`,
++                        `exchangePeerSessionId=${String(session.exchange?.session?.peerSessionId ?? "unknown")}`,
++                        `exchangeFabricIndex=${String(session.exchange?.session?.fabric?.fabricIndex ?? "unknown")}`,
++                        `exchangeAddress=${String((session.exchange?.session as { address?: unknown } | undefined)?.address ?? "unknown")}`,
++                        `exchangePeerAddress=${String(session.exchange?.session?.peerAddress ?? "unknown")}`,
++                        `exchangeChannel=${asDisplay(session.exchange?.session?.channel ?? "unknown")}`,
++                    ].join(", ")}`,
++                );
++                logger.debug(`Attribute access diagnostic: ${details.join(", ")}`);
++                if (
++                    peerNodeId === "unknown" &&
++                    peerSessionId === "unknown" &&
++                    peerAddress === "unknown" &&
++                    remoteAddress === "unknown"
++                ) {
++                    logger.debug("peer context unavailable at attribute-response diagnostic point");
++                }
++                if (path.clusterId === 0x001d && path.attributeId === 0x0005) {
++                    logger.debug("Controller probed unsupported Descriptor attribute 0x0005");
++                }
++            }
+         }
+ 
+         const report: WriteResult.AttributeStatus = {
 diff --git a/src/protocol/DeviceAdvertiser.ts b/src/protocol/DeviceAdvertiser.ts
 index 41963d741672344dd7314fb212c9264e1c06d23d..099f207e5cccadfe88af6d82610ba62dcb5b25a7 100644
 --- a/src/protocol/DeviceAdvertiser.ts

@@ -20,10 +20,10 @@ overrides:
 
 patchedDependencies:
   '@matter/node@0.16.11':
-    hash: 54822bf5c410064798112d4b7589b192b79a39a26ae02e1c483071c5636b4785
+    hash: 838ae550b8f4e472f59e7de895259ee4f30fc520a9fd984c35936031f0e212e5
     path: patches/@matter__node@0.16.11.patch
   '@matter/protocol@0.16.11':
-    hash: 32b3d8a8f8f6ee01f1c294f37bb1d3ca1de2c1c12d70f356733fd4e304f49025
+    hash: abc99e1854672ed0835667752971bb3b1b12ab20f93f8b757e1e8ac5b3351695
     path: patches/@matter__protocol@0.16.11.patch
 
 importers:
@@ -5861,8 +5861,8 @@ snapshots:
     dependencies:
       '@matter/general': 0.16.11
       '@matter/model': 0.16.11
-      '@matter/node': 0.16.11(patch_hash=54822bf5c410064798112d4b7589b192b79a39a26ae02e1c483071c5636b4785)
-      '@matter/protocol': 0.16.11(patch_hash=32b3d8a8f8f6ee01f1c294f37bb1d3ca1de2c1c12d70f356733fd4e304f49025)
+      '@matter/node': 0.16.11(patch_hash=838ae550b8f4e472f59e7de895259ee4f30fc520a9fd984c35936031f0e212e5)
+      '@matter/protocol': 0.16.11(patch_hash=abc99e1854672ed0835667752971bb3b1b12ab20f93f8b757e1e8ac5b3351695)
       '@matter/types': 0.16.11
     optionalDependencies:
       '@matter/nodejs': 0.16.11
@@ -5871,21 +5871,21 @@ snapshots:
     dependencies:
       '@matter/general': 0.16.11
 
-  '@matter/node@0.16.11(patch_hash=54822bf5c410064798112d4b7589b192b79a39a26ae02e1c483071c5636b4785)':
+  '@matter/node@0.16.11(patch_hash=838ae550b8f4e472f59e7de895259ee4f30fc520a9fd984c35936031f0e212e5)':
     dependencies:
       '@matter/general': 0.16.11
       '@matter/model': 0.16.11
-      '@matter/protocol': 0.16.11(patch_hash=32b3d8a8f8f6ee01f1c294f37bb1d3ca1de2c1c12d70f356733fd4e304f49025)
+      '@matter/protocol': 0.16.11(patch_hash=abc99e1854672ed0835667752971bb3b1b12ab20f93f8b757e1e8ac5b3351695)
       '@matter/types': 0.16.11
 
   '@matter/nodejs@0.16.11':
     dependencies:
       '@matter/general': 0.16.11
-      '@matter/node': 0.16.11(patch_hash=54822bf5c410064798112d4b7589b192b79a39a26ae02e1c483071c5636b4785)
-      '@matter/protocol': 0.16.11(patch_hash=32b3d8a8f8f6ee01f1c294f37bb1d3ca1de2c1c12d70f356733fd4e304f49025)
+      '@matter/node': 0.16.11(patch_hash=838ae550b8f4e472f59e7de895259ee4f30fc520a9fd984c35936031f0e212e5)
+      '@matter/protocol': 0.16.11(patch_hash=abc99e1854672ed0835667752971bb3b1b12ab20f93f8b757e1e8ac5b3351695)
       '@matter/types': 0.16.11
 
-  '@matter/protocol@0.16.11(patch_hash=32b3d8a8f8f6ee01f1c294f37bb1d3ca1de2c1c12d70f356733fd4e304f49025)':
+  '@matter/protocol@0.16.11(patch_hash=abc99e1854672ed0835667752971bb3b1b12ab20f93f8b757e1e8ac5b3351695)':
     dependencies:
       '@matter/general': 0.16.11
       '@matter/model': 0.16.11
