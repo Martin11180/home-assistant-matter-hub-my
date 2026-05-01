@@ -1,5 +1,5 @@
 diff --git a/dist/cjs/behaviors/descriptor/DescriptorServer.js b/dist/cjs/behaviors/descriptor/DescriptorServer.js
-index a6786485017dd7789ee6a8fc4f0d9033dcdb2ae2..4ef905f07d9e5f5dd43809e6ee705750386f10ac 100644
+index a6786485017dd7789ee6a8fc4f0d9033dcdb2ae2..fe4fcbf02421c68d7c7d34bd47a245f995437694 100644
 --- a/dist/cjs/behaviors/descriptor/DescriptorServer.js
 +++ b/dist/cjs/behaviors/descriptor/DescriptorServer.js
 @@ -185,8 +185,11 @@ class DescriptorServer extends import_DescriptorBehavior.DescriptorBehavior {
@@ -62,7 +62,7 @@ index 9c1aa6236867a1e021828704dcd3150ab99b2240..fbd18b6bd3622d0f65268e9272196994
          } else {
            import_types.StatusResponseError.accept(error);
 diff --git a/dist/esm/behaviors/descriptor/DescriptorServer.js b/dist/esm/behaviors/descriptor/DescriptorServer.js
-index 9c40593ff872cce8d40edcd4f01d0399a9461721..59e1544a38551a33642c304bb5931f28ab0066e9 100644
+index 9c40593ff872cce8d40edcd4f01d0399a9461721..11a22b92ee679b05f50223154516926e8eab4ca4 100644
 --- a/dist/esm/behaviors/descriptor/DescriptorServer.js
 +++ b/dist/esm/behaviors/descriptor/DescriptorServer.js
 @@ -162,8 +162,11 @@ class DescriptorServer extends DescriptorBehavior {
@@ -125,7 +125,7 @@ index 3da9287e7aa8111af3a07e234f0415131eb06304..3b33b278699e4ad0deeef57d2bfd3f84
          } else {
            StatusResponseError.accept(error);
 diff --git a/src/behaviors/descriptor/DescriptorServer.ts b/src/behaviors/descriptor/DescriptorServer.ts
-index 33cf1714755fc69b0a14cff468bc65a90f9aa9af..c700be89d7220172556f54d6f678397c6b469909 100644
+index 33cf1714755fc69b0a14cff468bc65a90f9aa9af..d59257a3e3b6ce5e69f062b89cff33d8ca4b6a62 100644
 --- a/src/behaviors/descriptor/DescriptorServer.ts
 +++ b/src/behaviors/descriptor/DescriptorServer.ts
 @@ -234,8 +234,11 @@ export class DescriptorServer extends DescriptorBehavior {

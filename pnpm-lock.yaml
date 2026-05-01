@@ -20,7 +20,7 @@ overrides:
 
 patchedDependencies:
   '@matter/node@0.16.11':
-    hash: 3566d57bb653bda029c6d00215c0723f3f842f023c8bd3346771029a2e55b34d
+    hash: 54822bf5c410064798112d4b7589b192b79a39a26ae02e1c483071c5636b4785
     path: patches/@matter__node@0.16.11.patch
   '@matter/protocol@0.16.11':
     hash: 32b3d8a8f8f6ee01f1c294f37bb1d3ca1de2c1c12d70f356733fd4e304f49025
@@ -5861,7 +5861,7 @@ snapshots:
     dependencies:
       '@matter/general': 0.16.11
       '@matter/model': 0.16.11
-      '@matter/node': 0.16.11(patch_hash=3566d57bb653bda029c6d00215c0723f3f842f023c8bd3346771029a2e55b34d)
+      '@matter/node': 0.16.11(patch_hash=54822bf5c410064798112d4b7589b192b79a39a26ae02e1c483071c5636b4785)
       '@matter/protocol': 0.16.11(patch_hash=32b3d8a8f8f6ee01f1c294f37bb1d3ca1de2c1c12d70f356733fd4e304f49025)
       '@matter/types': 0.16.11
     optionalDependencies:
@@ -5871,7 +5871,7 @@ snapshots:
     dependencies:
       '@matter/general': 0.16.11
 
-  '@matter/node@0.16.11(patch_hash=3566d57bb653bda029c6d00215c0723f3f842f023c8bd3346771029a2e55b34d)':
+  '@matter/node@0.16.11(patch_hash=54822bf5c410064798112d4b7589b192b79a39a26ae02e1c483071c5636b4785)':
     dependencies:
       '@matter/general': 0.16.11
       '@matter/model': 0.16.11
@@ -5881,7 +5881,7 @@ snapshots:
   '@matter/nodejs@0.16.11':
     dependencies:
       '@matter/general': 0.16.11
-      '@matter/node': 0.16.11(patch_hash=3566d57bb653bda029c6d00215c0723f3f842f023c8bd3346771029a2e55b34d)
+      '@matter/node': 0.16.11(patch_hash=54822bf5c410064798112d4b7589b192b79a39a26ae02e1c483071c5636b4785)
       '@matter/protocol': 0.16.11(patch_hash=32b3d8a8f8f6ee01f1c294f37bb1d3ca1de2c1c12d70f356733fd4e304f49025)
       '@matter/types': 0.16.11
 
