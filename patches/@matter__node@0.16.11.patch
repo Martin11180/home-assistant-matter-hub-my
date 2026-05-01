@@ -1,3 +1,16 @@
+diff --git a/dist/cjs/behaviors/descriptor/DescriptorServer.js b/dist/cjs/behaviors/descriptor/DescriptorServer.js
+index a6786485017dd7789ee6a8fc4f0d9033dcdb2ae2..b7aa7ed8fe07cc7edf913e25880a5b887398428d 100644
+--- a/dist/cjs/behaviors/descriptor/DescriptorServer.js
++++ b/dist/cjs/behaviors/descriptor/DescriptorServer.js
+@@ -186,7 +186,7 @@ class DescriptorServer extends import_DescriptorBehavior.DescriptorBehavior {
+    */
+   get #serverList() {
+     const list = new Array();
+-    for (const type of Object.values(this.endpoint.behaviors.supported)) {
++    for (const type of this.endpoint.behaviors.active) {
+       const clusterId = type.cluster?.id;
+       if (clusterId) {
+         list.push(clusterId);
 diff --git a/dist/cjs/node/server/ServerSubscription.js b/dist/cjs/node/server/ServerSubscription.js
 index 9c1aa6236867a1e021828704dcd3150ab99b2240..fbd18b6bd3622d0f65268e9272196994ae682a52 100644
 --- a/dist/cjs/node/server/ServerSubscription.js
@@ -44,6 +57,19 @@ index 9c1aa6236867a1e021828704dcd3150ab99b2240..fbd18b6bd3622d0f65268e9272196994
            this.#isCanceledByPeer = true;
          } else {
            import_types.StatusResponseError.accept(error);
+diff --git a/dist/esm/behaviors/descriptor/DescriptorServer.js b/dist/esm/behaviors/descriptor/DescriptorServer.js
+index 9c40593ff872cce8d40edcd4f01d0399a9461721..64909e510b688b8bb5df0c0ccbbdc763525a24e5 100644
+--- a/dist/esm/behaviors/descriptor/DescriptorServer.js
++++ b/dist/esm/behaviors/descriptor/DescriptorServer.js
+@@ -163,7 +163,7 @@ class DescriptorServer extends DescriptorBehavior {
+    */
+   get #serverList() {
+     const list = new Array();
+-    for (const type of Object.values(this.endpoint.behaviors.supported)) {
++    for (const type of this.endpoint.behaviors.active) {
+       const clusterId = type.cluster?.id;
+       if (clusterId) {
+         list.push(clusterId);
 diff --git a/dist/esm/node/server/ServerSubscription.js b/dist/esm/node/server/ServerSubscription.js
 index 3da9287e7aa8111af3a07e234f0415131eb06304..3b33b278699e4ad0deeef57d2bfd3f84625de2e2 100644
 --- a/dist/esm/node/server/ServerSubscription.js
@@ -90,6 +116,19 @@ index 3da9287e7aa8111af3a07e234f0415131eb06304..3b33b278699e4ad0deeef57d2bfd3f84
            this.#isCanceledByPeer = true;
          } else {
            StatusResponseError.accept(error);
+diff --git a/src/behaviors/descriptor/DescriptorServer.ts b/src/behaviors/descriptor/DescriptorServer.ts
+index 33cf1714755fc69b0a14cff468bc65a90f9aa9af..fa9ab079cbfdca5e824922397eb4002a8e9ca321 100644
+--- a/src/behaviors/descriptor/DescriptorServer.ts
++++ b/src/behaviors/descriptor/DescriptorServer.ts
+@@ -235,7 +235,7 @@ export class DescriptorServer extends DescriptorBehavior {
+      */
+     get #serverList() {
+         const list = new Array<ClusterId>();
+-        for (const type of Object.values(this.endpoint.behaviors.supported)) {
++        for (const type of this.endpoint.behaviors.active) {
+             const clusterId = (type as { cluster?: { id?: ClusterId } }).cluster?.id;
+             if (clusterId) {
+                 list.push(clusterId);
 diff --git a/src/node/server/ServerSubscription.ts b/src/node/server/ServerSubscription.ts
 index 13953b5a8c9f68e60942e0bebf563eb9ea866d9f..caa1a6502817f4e8f3ac3c998d0b41ee5ac091d0 100644
 --- a/src/node/server/ServerSubscription.ts
