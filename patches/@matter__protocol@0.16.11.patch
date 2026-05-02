@@ -1235,3 +1235,105 @@ index 41963d741672344dd7314fb212c9264e1c06d23d..099f207e5cccadfe88af6d82610ba62d
          this.#observers.close();
          await this.clearAdvertisers();
      }
+diff --git a/dist/cjs/mdns/MdnsClient.js b/dist/cjs/mdns/MdnsClient.js
+index e9af95d5c7b0573933cc797c2437ed9c4fb2fbf5..4a06d381f001f4fe05986789dfef432157de9cd9 100644
+--- a/dist/cjs/mdns/MdnsClient.js
++++ b/dist/cjs/mdns/MdnsClient.js
+@@ -439,7 +439,11 @@ class MdnsClient {
+   async findOperationalDevice(fabric, nodeId, timeout, ignoreExistingRecords = false) {
+     if (this.#closing) {
+-      throw new import_general.ImplementationError("Cannot discover operational device because scanner is closing.");
++      logger.debug(
++        `Skip operational discovery for ${(0, import_PeerAddress.PeerAddress)({ fabricIndex: fabric.fabricIndex, nodeId })}: scanner is closing.`
++      );
++      return void 0;
+     }
+     const deviceMatterQname = (0, import_MdnsConsts.getOperationalDeviceQname)(fabric.globalId, nodeId);
+     let storedDevice = this.#getOperationalDeviceRecords(deviceMatterQname);
+diff --git a/dist/esm/mdns/MdnsClient.js b/dist/esm/mdns/MdnsClient.js
+index 95f1f6fe16b74d15a8dfadb6a288ebd509ef44eb..d5905f61c4afbca33ec61f1c35a5b7f1f36580ca 100644
+--- a/dist/esm/mdns/MdnsClient.js
++++ b/dist/esm/mdns/MdnsClient.js
+@@ -451,7 +451,11 @@ class MdnsClient {
+   async findOperationalDevice(fabric, nodeId, timeout, ignoreExistingRecords = false) {
+     if (this.#closing) {
+-      throw new ImplementationError("Cannot discover operational device because scanner is closing.");
++      logger.debug(
++        `Skip operational discovery for ${PeerAddress({ fabricIndex: fabric.fabricIndex, nodeId })}: scanner is closing.`
++      );
++      return void 0;
+     }
+     const deviceMatterQname = getOperationalDeviceQname(fabric.globalId, nodeId);
+     let storedDevice = this.#getOperationalDeviceRecords(deviceMatterQname);
+diff --git a/dist/cjs/peer/PeerSet.js b/dist/cjs/peer/PeerSet.js
+index 7546f20f9c9d3adf4c8ac24c437f2f970739f98a..c4138a8561ded6feef92c922c0592b56b4ecb77b 100644
+--- a/dist/cjs/peer/PeerSet.js
++++ b/dist/cjs/peer/PeerSet.js
+@@ -722,7 +722,14 @@ class PeerSet extends import_general.Lifecycle {
+       }
+       session.channel.networkAddress = addresses[0];
+     }).catch((error) => {
++      const message = error instanceof Error ? error.message : String(error);
++      if (message.includes("scanner is closing")) {
++        logger.debug(
++          `Skip resubmission discovery for ${address}: scanner is closing during shutdown/restart.`
++        );
++        return;
++      }
+       logger.error(`Failed to discover ${address} after resubmission started.`, error);
+     }).finally(() => {
+       if (peer.activeDiscovery?.type === 1 /* RetransmissionDiscovery */) {
+diff --git a/dist/esm/peer/PeerSet.js b/dist/esm/peer/PeerSet.js
+index bfd2fef2338d9834e868dcf23c993514c44de989..52efb8d56edb35f4840261e1d5fca3f98033f676 100644
+--- a/dist/esm/peer/PeerSet.js
++++ b/dist/esm/peer/PeerSet.js
+@@ -719,7 +719,14 @@ class PeerSet extends Lifecycle {
+       }
+       session.channel.networkAddress = addresses[0];
+     }).catch((error) => {
++      const message = error instanceof Error ? error.message : String(error);
++      if (message.includes("scanner is closing")) {
++        logger.debug(
++          `Skip resubmission discovery for ${address}: scanner is closing during shutdown/restart.`
++        );
++        return;
++      }
+       logger.error(`Failed to discover ${address} after resubmission started.`, error);
+     }).finally(() => {
+       if (peer.activeDiscovery?.type === 1 /* RetransmissionDiscovery */) {
+diff --git a/src/mdns/MdnsClient.ts b/src/mdns/MdnsClient.ts
+index 5d7a1e8b7f4ab6ce30420858f24fbda9908d7c16..c4c1fa8334e8f21ad8f59c1f5aac12ea9a5f2d62 100644
+--- a/src/mdns/MdnsClient.ts
++++ b/src/mdns/MdnsClient.ts
+@@ -574,7 +574,11 @@ export class MdnsClient implements Scanner {
+         ignoreExistingRecords = false,
+     ): Promise<OperationalDevice | undefined> {
+         if (this.#closing) {
+-            throw new ImplementationError("Cannot discover operational device because scanner is closing.");
++            logger.debug(
++                `Skip operational discovery for ${PeerAddress({ fabricIndex: fabric.fabricIndex, nodeId })}: scanner is closing.`,
++            );
++            return undefined;
+         }
+         const deviceMatterQname = getOperationalDeviceQname(fabric.globalId, nodeId);
+ 
+diff --git a/src/peer/PeerSet.ts b/src/peer/PeerSet.ts
+index 329e18de2e66ec3d7f00643e52d5513fa36f5a3e..eb67791db3cfb11de862c91972ec034fb6ca89b0 100644
+--- a/src/peer/PeerSet.ts
++++ b/src/peer/PeerSet.ts
+@@ -943,7 +943,14 @@ export class PeerSet extends Lifecycle {
+                 // Ok, just use the first address for the next request already
+                 session.channel.networkAddress = addresses[0];
+             })
+-            .catch(error => {
++            .catch(error => {
++                const message = error instanceof Error ? error.message : String(error);
++                if (message.includes("scanner is closing")) {
++                    logger.debug(
++                        `Skip resubmission discovery for ${address}: scanner is closing during shutdown/restart.`,
++                    );
++                    return;
++                }
+                 logger.error(`Failed to discover ${address} after resubmission started.`, error);
+             })
+             .finally(() => {
