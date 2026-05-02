@@ -143,6 +143,14 @@ export class WindowCoveringServerBase extends FeaturedBase {
       }
     }
 
+    // Default Rollershade fails conformance for tilt-capable covers (#323).
+    this.state.type =
+      this.features.lift && this.features.tilt
+        ? WindowCovering.WindowCoveringType.TiltBlindLift
+        : this.features.tilt
+          ? WindowCovering.WindowCoveringType.TiltBlindTiltOnly
+          : WindowCovering.WindowCoveringType.Rollershade;
+
     await super.initialize();
     const homeAssistant = await this.agent.load(HomeAssistantEntityBehavior);
     this.update(homeAssistant.entity);
@@ -338,7 +346,7 @@ export class WindowCoveringServerBase extends FeaturedBase {
         Date.now() - this.lastLiftMovementMs < 50
       ) {
         logger.info(
-          `Skipping tilt ${MovementDirection[direction]} — lift already moving in same direction`,
+          `Skipping tilt ${MovementDirection[direction]}, lift already moving in same direction`,
         );
         return;
       }

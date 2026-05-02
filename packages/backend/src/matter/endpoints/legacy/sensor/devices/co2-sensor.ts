@@ -25,7 +25,7 @@ class Co2AirQualityServer extends Co2AirQualityServerBase {
     await super.initialize();
     const homeAssistant = await this.agent.load(HomeAssistantEntityBehavior);
     this.update(homeAssistant.entity);
-    this.reactTo(homeAssistant.onChange, this.update);
+    this.reactTo(homeAssistant.onChange, this.update, { offline: true });
   }
 
   private update(entity: HomeAssistantEntityInformation) {
@@ -35,7 +35,7 @@ class Co2AirQualityServer extends Co2AirQualityServerBase {
 
     if (state != null && !Number.isNaN(+state)) {
       const value = +state;
-      // CO2 in ppm – thresholds based on German UBA / ASHRAE indoor air quality guidelines.
+      // CO2 in ppm - thresholds based on German UBA / ASHRAE indoor air quality guidelines.
       // Outdoor CO2 is ~420 ppm (2024+), well-ventilated indoor ~450-600 ppm.
       if (value <= 800) {
         airQuality = AirQuality.AirQualityEnum.Good;

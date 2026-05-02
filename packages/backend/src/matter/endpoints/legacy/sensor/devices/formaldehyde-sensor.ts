@@ -24,7 +24,7 @@ class FormaldehydeAirQualityServer extends FormaldehydeAirQualityServerBase {
     await super.initialize();
     const homeAssistant = await this.agent.load(HomeAssistantEntityBehavior);
     this.update(homeAssistant.entity);
-    this.reactTo(homeAssistant.onChange, this.update);
+    this.reactTo(homeAssistant.onChange, this.update, { offline: true });
   }
 
   private update(entity: HomeAssistantEntityInformation) {
@@ -34,7 +34,7 @@ class FormaldehydeAirQualityServer extends FormaldehydeAirQualityServerBase {
 
     if (state != null && !Number.isNaN(+state)) {
       const ugm3 = +state;
-      // HCHO in µg/m³ — thresholds based on WHO indoor air quality guidelines.
+      // HCHO in µg/m³, thresholds based on WHO indoor air quality guidelines.
       // WHO recommends 100 µg/m³ (30-min average).
       if (ugm3 <= 30) {
         airQuality = AirQuality.AirQualityEnum.Good;
