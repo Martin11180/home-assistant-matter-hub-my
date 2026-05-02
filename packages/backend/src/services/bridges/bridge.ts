@@ -456,7 +456,7 @@ export class Bridge {
         peerNodeId: unknown;
       }) => {
         const sessions = [...sessionManager.sessions];
-        this.log.warn(
+        this.log.info(
           `Session closed: id=${session.id} peer=${session.peerNodeId} | remaining sessions=${sessions.length}`,
         );
         diagnosticEventBus.emit(

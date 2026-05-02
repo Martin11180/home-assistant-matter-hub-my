@@ -253,6 +253,33 @@ index a120669cfd13ebdaf635fc75ad9d232b95703fe7..f0482d7cb39500785832802b8d509b7a
        signatureAlgorithm: (0, import_types.TlvField)(2, import_types.TlvUInt8),
        issuer: (0, import_types.TlvField)(
          3,
+diff --git a/dist/cjs/peer/PeerSet.js b/dist/cjs/peer/PeerSet.js
+index d471d7487c0dc7cafed1b8d23a62661ccb99afcd..b465209527022a05b313da8dc6f134a6090cf68e 100644
+--- a/dist/cjs/peer/PeerSet.js
++++ b/dist/cjs/peer/PeerSet.js
+@@ -142,6 +142,22 @@ class PeerSet {
+       }
+       this.#handleFirstRetry(session);
+     });
++    this.#sessions.context.fabrics.events.deleting.on((fabric) => {
++      for (const peer of this.#peers) {
++        if (peer.address.fabricIndex !== fabric.fabricIndex) {
++          continue;
++        }
++        const { activeDiscovery } = peer;
++        if (activeDiscovery?.mdnsClient !== void 0) {
++          activeDiscovery.mdnsClient.cancelOperationalDeviceDiscovery(
++            this.#sessions.fabricFor(peer.address),
++            peer.address.nodeId,
++            false
++          );
++        }
++        peer.activeDiscovery = void 0;
++      }
++    });
+     this.#construction = (0, import_general.Construction)(this, async () => {
+       for (const descriptor of await this.#store.loadPeers()) {
+         this.#peers.add(new import_Peer.Peer(descriptor, this.#peerContext));
 diff --git a/dist/cjs/protocol/DeviceAdvertiser.js b/dist/cjs/protocol/DeviceAdvertiser.js
 index eba2665e872fe89e13ef175fd30d1732c530ecc5..792eab9c9d48dd5e5981beec460288222476c47f 100644
 --- a/dist/cjs/protocol/DeviceAdvertiser.js
@@ -344,6 +371,79 @@ index eba2665e872fe89e13ef175fd30d1732c530ecc5..792eab9c9d48dd5e5981beec46028822
      this.#observers.close();
      await this.clearAdvertisers();
    }
+diff --git a/dist/cjs/protocol/ExchangeManager.js b/dist/cjs/protocol/ExchangeManager.js
+index 9493efdf3f312303f00cf7fb64cfb4370ab60af8..b7821c55d3145a6daf87bed7fb7524ff472717f3 100644
+--- a/dist/cjs/protocol/ExchangeManager.js
++++ b/dist/cjs/protocol/ExchangeManager.js
+@@ -215,9 +215,12 @@ class ExchangeManager {
+           session = this.#sessions.getSession(packet.header.sessionId);
+         }
+         if (session === void 0) {
+-          logger.warn(
+-            `Ignoring message for unknown session ${import_Session.Session.idStrOf(packet)}${packet.header.sourceNodeId !== void 0 ? ` from node ${import_general.hex.fixed(packet.header.sourceNodeId, 16)}` : ""}`
+-          );
++          const message2 = `Ignoring message for unknown session ${import_Session.Session.idStrOf(packet)}${packet.header.sourceNodeId !== void 0 ? ` from node ${import_general.hex.fixed(packet.header.sourceNodeId, 16)}` : ""}`;
++          if (packet.header.sourceNodeId !== void 0) {
++            logger.debug(message2);
++          } else {
++            logger.warn(message2);
++          }
+           return;
+         }
+         message = session.decode(packet, aad);
+diff --git a/dist/cjs/session/SessionManager.js b/dist/cjs/session/SessionManager.js
+index f574cadaa8cf4e1bc3a36253d9e8b06a014a862f..3102828822808c26ea01d85547c1367ef2f246ac 100644
+--- a/dist/cjs/session/SessionManager.js
++++ b/dist/cjs/session/SessionManager.js
+@@ -403,7 +403,17 @@ class SessionManager {
+     }
+   }
+   #asExposedResumptionRecord(record) {
+-    return { ...record, fabric: this.#fabricForId(record.fabricId, record.fabricIndex) };
++    const fabric = this.#maybeFabricForId(record.fabricId, record.fabricIndex);
++    if (fabric === void 0) {
++      logger.debug(
++        `Dropping stale resumption record for fabric 0x${(0, import_general.toHex)(record.fabricId)} index ${record.fabricIndex}`
++      );
++      this.#resumptionRecords.delete(
++        (0, import_PeerAddress.PeerAddress)({ fabricIndex: record.fabricIndex, nodeId: record.peerNodeId })
++      );
++      return void 0;
++    }
++    return { ...record, fabric };
+   }
+   findResumptionRecordById(resumptionId) {
+     this.#construction.assert();
+diff --git a/dist/cjs/session/case/CaseServer.js b/dist/cjs/session/case/CaseServer.js
+index 6f7ab08b67e7d23fea33b337a413672ec83a1465..5a52a6a8e03e64f6110045a7bf4b7bd31b3b7197 100644
+--- a/dist/cjs/session/case/CaseServer.js
++++ b/dist/cjs/session/case/CaseServer.js
+@@ -51,7 +51,24 @@ class CaseServer {
+       await this.#handleSigma1(messenger);
+     } catch (error) {
+       if (error instanceof import_FabricManager.FabricNotFoundError) {
+-        logger.error("Error establishing CASE session:", import_general.Diagnostic.errorMessage(error));
++        const message = error instanceof Error ? error.message : String(error);
++        const fabricIdMatch = message.match(/ID=([^,\s]+)/);
++        const fabricIndexMatch = message.match(/index=([0-9]+)/);
++        const destIdMatch = message.match(/destId[:=\s]+([0-9a-fA-F]+)/);
++        const sourceAddress = messenger.channelName;
++        logger.debug(
++          "Ignoring CASE request for removed/stale fabric",
++          import_general.Diagnostic.dict({
++            reason: "fabric-removed-or-stale",
++            message,
++            sourceAddress,
++            destId: destIdMatch?.[1] !== void 0 ? `${destIdMatch[1].slice(0, 8)}…` : "unknown",
++            fabricId: fabricIdMatch?.[1] ?? "unknown",
++            fabricIndex: fabricIndexMatch?.[1] ?? "unknown",
++            peerNodeId: exchange.session.peerNodeId !== void 0 ? String(exchange.session.peerNodeId) : "unknown"
++          }),
++          import_general.Diagnostic.via(messenger.channelName)
++        );
+         await messenger.sendError(import_types.SecureChannelStatusCode.NoSharedTrustRoots);
+       } else if (!(error instanceof import_SecureChannelMessenger.ChannelStatusResponseError)) {
+         logger.error("Error establishing CASE session", error);
 diff --git a/dist/esm/action/server/AttributeReadResponse.js b/dist/esm/action/server/AttributeReadResponse.js
 index 0d6090fb82807ac9c3b44210d940ddb42175f8ad..63d41d680eb18d192c608153c5c54750cd3a8a82 100644
 --- a/dist/esm/action/server/AttributeReadResponse.js
@@ -599,6 +699,33 @@ index 41a546f5cb99b2bcbb16f978173eff602fdbdd81..1182274d2c0781ab7332e8e50327226d
        signatureAlgorithm: TlvField(2, TlvUInt8),
        issuer: TlvField(
          3,
+diff --git a/dist/esm/peer/PeerSet.js b/dist/esm/peer/PeerSet.js
+index 3094eb5f1d6ebb637d3fef232507dec7a60b43a4..893ffbee5397fb2a6f9e39b4af43db6fecf782ec 100644
+--- a/dist/esm/peer/PeerSet.js
++++ b/dist/esm/peer/PeerSet.js
+@@ -139,6 +139,22 @@ class PeerSet {
+       }
+       this.#handleFirstRetry(session);
+     });
++    this.#sessions.context.fabrics.events.deleting.on((fabric) => {
++      for (const peer of this.#peers) {
++        if (peer.address.fabricIndex !== fabric.fabricIndex) {
++          continue;
++        }
++        const { activeDiscovery } = peer;
++        if (activeDiscovery?.mdnsClient !== void 0) {
++          activeDiscovery.mdnsClient.cancelOperationalDeviceDiscovery(
++            this.#sessions.fabricFor(peer.address),
++            peer.address.nodeId,
++            false
++          );
++        }
++        peer.activeDiscovery = void 0;
++      }
++    });
+     this.#construction = Construction(this, async () => {
+       for (const descriptor of await this.#store.loadPeers()) {
+         this.#peers.add(new Peer(descriptor, this.#peerContext));
 diff --git a/dist/esm/protocol/DeviceAdvertiser.js b/dist/esm/protocol/DeviceAdvertiser.js
 index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..1955a6e7c897d3d691fa158c7dbb74def2bb1015 100644
 --- a/dist/esm/protocol/DeviceAdvertiser.js
@@ -690,6 +817,79 @@ index 5e8d250dbfcf96bd70027e97c9fb4a74ec43cb4d..1955a6e7c897d3d691fa158c7dbb74de
      this.#observers.close();
      await this.clearAdvertisers();
    }
+diff --git a/dist/esm/protocol/ExchangeManager.js b/dist/esm/protocol/ExchangeManager.js
+index 8631eb73fb8f28015b2653b92836282b0c37c896..10ca5592f847d098b461e927ffdcb8b91cf6121a 100644
+--- a/dist/esm/protocol/ExchangeManager.js
++++ b/dist/esm/protocol/ExchangeManager.js
+@@ -206,9 +206,12 @@ class ExchangeManager {
+           session = this.#sessions.getSession(packet.header.sessionId);
+         }
+         if (session === void 0) {
+-          logger.warn(
+-            `Ignoring message for unknown session ${Session.idStrOf(packet)}${packet.header.sourceNodeId !== void 0 ? ` from node ${hex.fixed(packet.header.sourceNodeId, 16)}` : ""}`
+-          );
++          const message2 = `Ignoring message for unknown session ${Session.idStrOf(packet)}${packet.header.sourceNodeId !== void 0 ? ` from node ${hex.fixed(packet.header.sourceNodeId, 16)}` : ""}`;
++          if (packet.header.sourceNodeId !== void 0) {
++            logger.debug(message2);
++          } else {
++            logger.warn(message2);
++          }
+           return;
+         }
+         message = session.decode(packet, aad);
+diff --git a/dist/esm/session/SessionManager.js b/dist/esm/session/SessionManager.js
+index acb3fa14a5da780f92eff6531628b70ada51e2e4..d4a1370264b85c8ede313e2cc2b0d8902c4490bd 100644
+--- a/dist/esm/session/SessionManager.js
++++ b/dist/esm/session/SessionManager.js
+@@ -396,7 +396,17 @@ class SessionManager {
+     }
+   }
+   #asExposedResumptionRecord(record) {
+-    return { ...record, fabric: this.#fabricForId(record.fabricId, record.fabricIndex) };
++    const fabric = this.#maybeFabricForId(record.fabricId, record.fabricIndex);
++    if (fabric === void 0) {
++      logger.debug(
++        `Dropping stale resumption record for fabric 0x${toHex(record.fabricId)} index ${record.fabricIndex}`
++      );
++      this.#resumptionRecords.delete(
++        PeerAddress({ fabricIndex: record.fabricIndex, nodeId: record.peerNodeId })
++      );
++      return void 0;
++    }
++    return { ...record, fabric };
+   }
+   findResumptionRecordById(resumptionId) {
+     this.#construction.assert();
+diff --git a/dist/esm/session/case/CaseServer.js b/dist/esm/session/case/CaseServer.js
+index 3d840b6a8bdda7164f4b9ae0d7123d3c5faae4eb..e06725c3142533a1286406d6ddf2a7e6880fd8ca 100644
+--- a/dist/esm/session/case/CaseServer.js
++++ b/dist/esm/session/case/CaseServer.js
+@@ -48,7 +48,24 @@ class CaseServer {
+       await this.#handleSigma1(messenger);
+     } catch (error) {
+       if (error instanceof FabricNotFoundError) {
+-        logger.error("Error establishing CASE session:", Diagnostic.errorMessage(error));
++        const message = error instanceof Error ? error.message : String(error);
++        const fabricIdMatch = message.match(/ID=([^,\s]+)/);
++        const fabricIndexMatch = message.match(/index=([0-9]+)/);
++        const destIdMatch = message.match(/destId[:=\s]+([0-9a-fA-F]+)/);
++        const sourceAddress = messenger.channelName;
++        logger.debug(
++          "Ignoring CASE request for removed/stale fabric",
++          Diagnostic.dict({
++            reason: "fabric-removed-or-stale",
++            message,
++            sourceAddress,
++            destId: destIdMatch?.[1] !== void 0 ? `${destIdMatch[1].slice(0, 8)}…` : "unknown",
++            fabricId: fabricIdMatch?.[1] ?? "unknown",
++            fabricIndex: fabricIndexMatch?.[1] ?? "unknown",
++            peerNodeId: exchange.session.peerNodeId !== void 0 ? String(exchange.session.peerNodeId) : "unknown"
++          }),
++          Diagnostic.via(messenger.channelName)
++        );
+         await messenger.sendError(SecureChannelStatusCode.NoSharedTrustRoots);
+       } else if (!(error instanceof ChannelStatusResponseError)) {
+         logger.error("Error establishing CASE session", error);
 diff --git a/src/action/server/AttributeReadResponse.ts b/src/action/server/AttributeReadResponse.ts
 index 47d3d05e3b314e20b32145aae8f8bfc6508ac58c..af69d756a62b8ca3b867d9e6b0c900bfa5f53820 100644
 --- a/src/action/server/AttributeReadResponse.ts
@@ -1132,6 +1332,34 @@ index 6f09c5e9c318784972791e7aeeed2252aad70407..54210505acf68bfdb706e638d8a7c466
          }
  
          const report: WriteResult.AttributeStatus = {
+diff --git a/src/peer/PeerSet.ts b/src/peer/PeerSet.ts
+index daefb362bf99cb7acf0a9cffdc79592b65c9cbee..3326a0f14087178fd40c5cda225668637309ec8e 100644
+--- a/src/peer/PeerSet.ts
++++ b/src/peer/PeerSet.ts
+@@ -162,6 +162,23 @@ export class PeerSet implements ImmutableSet<Peer>, ObservableSet<Peer> {
+             this.#handleFirstRetry(session);
+         });
+ 
++        this.#sessions.context.fabrics.events.deleting.on(fabric => {
++            for (const peer of this.#peers) {
++                if (peer.address.fabricIndex !== fabric.fabricIndex) {
++                    continue;
++                }
++                const { activeDiscovery } = peer;
++                if (activeDiscovery?.mdnsClient !== undefined) {
++                    activeDiscovery.mdnsClient.cancelOperationalDeviceDiscovery(
++                        this.#sessions.fabricFor(peer.address),
++                        peer.address.nodeId,
++                        false,
++                    );
++                }
++                peer.activeDiscovery = undefined;
++            }
++        });
++
+         this.#construction = Construction(this, async () => {
+             for (const descriptor of await this.#store.loadPeers()) {
+                 this.#peers.add(new Peer(descriptor, this.#peerContext));
 diff --git a/src/protocol/DeviceAdvertiser.ts b/src/protocol/DeviceAdvertiser.ts
 index 41963d741672344dd7314fb212c9264e1c06d23d..099f207e5cccadfe88af6d82610ba62dcb5b25a7 100644
 --- a/src/protocol/DeviceAdvertiser.ts
@@ -1235,105 +1463,90 @@ index 41963d741672344dd7314fb212c9264e1c06d23d..099f207e5cccadfe88af6d82610ba62d
          this.#observers.close();
          await this.clearAdvertisers();
      }
-diff --git a/dist/cjs/mdns/MdnsClient.js b/dist/cjs/mdns/MdnsClient.js
-index e9af95d5c7b0573933cc797c2437ed9c4fb2fbf5..4a06d381f001f4fe05986789dfef432157de9cd9 100644
---- a/dist/cjs/mdns/MdnsClient.js
-+++ b/dist/cjs/mdns/MdnsClient.js
-@@ -439,7 +439,11 @@ class MdnsClient {
-   async findOperationalDevice(fabric, nodeId, timeout, ignoreExistingRecords = false) {
-     if (this.#closing) {
--      throw new import_general.ImplementationError("Cannot discover operational device because scanner is closing.");
-+      logger.debug(
-+        `Skip operational discovery for ${(0, import_PeerAddress.PeerAddress)({ fabricIndex: fabric.fabricIndex, nodeId })}: scanner is closing.`
-+      );
-+      return void 0;
+diff --git a/src/protocol/ExchangeManager.ts b/src/protocol/ExchangeManager.ts
+index 1b366af539c612e57f6709f7e83912dbf0d5fce7..d5259a1ea884a5a5b079217b2d67d336afd43942 100644
+--- a/src/protocol/ExchangeManager.ts
++++ b/src/protocol/ExchangeManager.ts
+@@ -194,13 +194,16 @@ export class ExchangeManager {
+             }
+ 
+             if (session === undefined) {
+-                logger.warn(
+-                    `Ignoring message for unknown session ${Session.idStrOf(packet)}${
+-                        packet.header.sourceNodeId !== undefined
+-                            ? ` from node ${hex.fixed(packet.header.sourceNodeId, 16)}`
+-                            : ""
+-                    }`,
+-                );
++                const message = `Ignoring message for unknown session ${Session.idStrOf(packet)}${
++                    packet.header.sourceNodeId !== undefined
++                        ? ` from node ${hex.fixed(packet.header.sourceNodeId, 16)}`
++                        : ""
++                }`;
++                if (packet.header.sourceNodeId !== undefined) {
++                    logger.debug(message);
++                } else {
++                    logger.warn(message);
++                }
+                 return;
+             }
+ 
+diff --git a/src/session/SessionManager.ts b/src/session/SessionManager.ts
+index cf56f989204817ce7922e1e31b2708d10963f059..575ded2da641f94b21986f15964118df26f37043 100644
+--- a/src/session/SessionManager.ts
++++ b/src/session/SessionManager.ts
+@@ -561,8 +561,18 @@ export class SessionManager {
+         }
      }
-     const deviceMatterQname = (0, import_MdnsConsts.getOperationalDeviceQname)(fabric.globalId, nodeId);
-     let storedDevice = this.#getOperationalDeviceRecords(deviceMatterQname);
-diff --git a/dist/esm/mdns/MdnsClient.js b/dist/esm/mdns/MdnsClient.js
-index 95f1f6fe16b74d15a8dfadb6a288ebd509ef44eb..d5905f61c4afbca33ec61f1c35a5b7f1f36580ca 100644
---- a/dist/esm/mdns/MdnsClient.js
-+++ b/dist/esm/mdns/MdnsClient.js
-@@ -451,7 +451,11 @@ class MdnsClient {
-   async findOperationalDevice(fabric, nodeId, timeout, ignoreExistingRecords = false) {
-     if (this.#closing) {
--      throw new ImplementationError("Cannot discover operational device because scanner is closing.");
-+      logger.debug(
-+        `Skip operational discovery for ${PeerAddress({ fabricIndex: fabric.fabricIndex, nodeId })}: scanner is closing.`
-+      );
-+      return void 0;
-     }
-     const deviceMatterQname = getOperationalDeviceQname(fabric.globalId, nodeId);
-     let storedDevice = this.#getOperationalDeviceRecords(deviceMatterQname);
-diff --git a/dist/cjs/peer/PeerSet.js b/dist/cjs/peer/PeerSet.js
-index 7546f20f9c9d3adf4c8ac24c437f2f970739f98a..c4138a8561ded6feef92c922c0592b56b4ecb77b 100644
---- a/dist/cjs/peer/PeerSet.js
-+++ b/dist/cjs/peer/PeerSet.js
-@@ -722,7 +722,14 @@ class PeerSet extends import_general.Lifecycle {
-       }
-       session.channel.networkAddress = addresses[0];
-     }).catch((error) => {
-+      const message = error instanceof Error ? error.message : String(error);
-+      if (message.includes("scanner is closing")) {
-+        logger.debug(
-+          `Skip resubmission discovery for ${address}: scanner is closing during shutdown/restart.`
-+        );
-+        return;
-+      }
-       logger.error(`Failed to discover ${address} after resubmission started.`, error);
-     }).finally(() => {
-       if (peer.activeDiscovery?.type === 1 /* RetransmissionDiscovery */) {
-diff --git a/dist/esm/peer/PeerSet.js b/dist/esm/peer/PeerSet.js
-index bfd2fef2338d9834e868dcf23c993514c44de989..52efb8d56edb35f4840261e1d5fca3f98033f676 100644
---- a/dist/esm/peer/PeerSet.js
-+++ b/dist/esm/peer/PeerSet.js
-@@ -719,7 +719,14 @@ class PeerSet extends Lifecycle {
-       }
-       session.channel.networkAddress = addresses[0];
-     }).catch((error) => {
-+      const message = error instanceof Error ? error.message : String(error);
-+      if (message.includes("scanner is closing")) {
-+        logger.debug(
-+          `Skip resubmission discovery for ${address}: scanner is closing during shutdown/restart.`
-+        );
-+        return;
-+      }
-       logger.error(`Failed to discover ${address} after resubmission started.`, error);
-     }).finally(() => {
-       if (peer.activeDiscovery?.type === 1 /* RetransmissionDiscovery */) {
-diff --git a/src/mdns/MdnsClient.ts b/src/mdns/MdnsClient.ts
-index 5d7a1e8b7f4ab6ce30420858f24fbda9908d7c16..c4c1fa8334e8f21ad8f59c1f5aac12ea9a5f2d62 100644
---- a/src/mdns/MdnsClient.ts
-+++ b/src/mdns/MdnsClient.ts
-@@ -574,7 +574,11 @@ export class MdnsClient implements Scanner {
-         ignoreExistingRecords = false,
-     ): Promise<OperationalDevice | undefined> {
-         if (this.#closing) {
--            throw new ImplementationError("Cannot discover operational device because scanner is closing.");
+ 
+-    #asExposedResumptionRecord(record: InternalResumptionRecord): ResumptionRecord {
+-        return { ...record, fabric: this.#fabricForId(record.fabricId, record.fabricIndex) };
++    #asExposedResumptionRecord(record: InternalResumptionRecord): ResumptionRecord | undefined {
++        const fabric = this.#maybeFabricForId(record.fabricId, record.fabricIndex);
++        if (fabric === undefined) {
 +            logger.debug(
-+                `Skip operational discovery for ${PeerAddress({ fabricIndex: fabric.fabricIndex, nodeId })}: scanner is closing.`,
++                `Dropping stale resumption record for fabric 0x${toHex(record.fabricId)} index ${record.fabricIndex}`,
++            );
++            this.#resumptionRecords.delete(
++                PeerAddress({ fabricIndex: record.fabricIndex, nodeId: record.peerNodeId }),
 +            );
 +            return undefined;
-         }
-         const deviceMatterQname = getOperationalDeviceQname(fabric.globalId, nodeId);
++        }
++        return { ...record, fabric };
+     }
  
-diff --git a/src/peer/PeerSet.ts b/src/peer/PeerSet.ts
-index 329e18de2e66ec3d7f00643e52d5513fa36f5a3e..eb67791db3cfb11de862c91972ec034fb6ca89b0 100644
---- a/src/peer/PeerSet.ts
-+++ b/src/peer/PeerSet.ts
-@@ -943,7 +943,14 @@ export class PeerSet extends Lifecycle {
-                 // Ok, just use the first address for the next request already
-                 session.channel.networkAddress = addresses[0];
-             })
--            .catch(error => {
-+            .catch(error => {
+     findResumptionRecordById(resumptionId: Bytes) {
+diff --git a/src/session/case/CaseServer.ts b/src/session/case/CaseServer.ts
+index ce1177a4bac2ecdaaf9e618d72cb047af4ff8719..818616c1e46a79296568903fea8ef5e200e7eae2 100644
+--- a/src/session/case/CaseServer.ts
++++ b/src/session/case/CaseServer.ts
+@@ -61,7 +61,28 @@ export class CaseServer implements ProtocolHandler {
+             await this.#handleSigma1(messenger);
+         } catch (error) {
+             if (error instanceof FabricNotFoundError) {
+-                logger.error("Error establishing CASE session:", Diagnostic.errorMessage(error));
 +                const message = error instanceof Error ? error.message : String(error);
-+                if (message.includes("scanner is closing")) {
-+                    logger.debug(
-+                        `Skip resubmission discovery for ${address}: scanner is closing during shutdown/restart.`,
-+                    );
-+                    return;
-+                }
-                 logger.error(`Failed to discover ${address} after resubmission started.`, error);
-             })
-             .finally(() => {
++                const fabricIdMatch = message.match(/ID=([^,\s]+)/);
++                const fabricIndexMatch = message.match(/index=([0-9]+)/);
++                const destIdMatch = message.match(/destId[:=\s]+([0-9a-fA-F]+)/);
++                const sourceAddress = messenger.channelName;
++                logger.debug(
++                    "Ignoring CASE request for removed/stale fabric",
++                    Diagnostic.dict({
++                        reason: "fabric-removed-or-stale",
++                        message,
++                        sourceAddress,
++                        destId:
++                            destIdMatch?.[1] !== undefined ? `${destIdMatch[1].slice(0, 8)}…` : "unknown",
++                        fabricId: fabricIdMatch?.[1] ?? "unknown",
++                        fabricIndex: fabricIndexMatch?.[1] ?? "unknown",
++                        peerNodeId:
++                            exchange.session.peerNodeId !== undefined
++                                ? String(exchange.session.peerNodeId)
++                                : "unknown",
++                    }),
++                    Diagnostic.via(messenger.channelName),
++                );
+                 await messenger.sendError(SecureChannelStatusCode.NoSharedTrustRoots);
+             }
+             // If we received a ChannelStatusResponseError we do not need to send one back, so just cancel pairing

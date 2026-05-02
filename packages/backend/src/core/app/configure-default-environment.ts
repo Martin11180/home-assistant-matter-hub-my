@@ -14,6 +14,10 @@ export function configureDefaultEnvironment(options: Options) {
   // matter.js signal handlers would conflict (e.g. double-shutdown, premature exit).
   env.vars.set("runtime.signals", false);
   env.vars.set("runtime.exitcode", false);
+  env.vars.set("mdns.ipv4", options.mdns.ipv4);
+  if (options.mdns.networkInterface) {
+    env.vars.set("mdns.networkInterface", options.mdns.networkInterface);
+  }
 
   env.set(LoggerService, new LoggerService(options.logging));
 
