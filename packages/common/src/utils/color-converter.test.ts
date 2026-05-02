@@ -26,7 +26,7 @@ describe("ColorConverter", () => {
       [0.1355, 0.0399, 240, 100],
       [0.4323, 0.5, 60, 73],
       [0.3127, 0.329, 186, 4],
-    ])("should convert XY to Color", (x, y, h, s) => {
+    ])("should convert XY to Color", (x: number, y: number, h: number, s: number) => {
       const [resultH, resultS] = ColorConverter.fromXY(x, y).hsv().array();
       expect(resultH).toBeCloseTo(h, 0);
       expect(resultS).toBeCloseTo(s, 0);
@@ -40,7 +40,7 @@ describe("ColorConverter", () => {
       [0, 0, 255, 240, 100],
       [255, 255, 0, 60, 100],
       [128, 128, 128, 0, 0],
-    ])("should convert RGB to Color", (r, g, b, h, s) => {
+    ])("should convert RGB to Color", (r: number, g: number, b: number, h: number, s: number) => {
       const [resultH, resultS] = ColorConverter.fromRGB(r, g, b).hsv().array();
       expect(resultH).toBeCloseTo(h, 0);
       expect(resultS).toBeCloseTo(s, 0);
@@ -54,7 +54,7 @@ describe("ColorConverter", () => {
       [0, 0, 255, 170, 240, 33],
       [255, 255, 0, 100, 60, 61],
       [128, 128, 128, 150, 0, 0],
-    ])("should convert RGBW to Color", (r, g, b, w, h, s) => {
+    ])("should convert RGBW to Color", (r: number, g: number, b: number, w: number, h: number, s: number) => {
       const [resultH, resultS] = ColorConverter.fromRGBW(r, g, b, w)
         .hsv()
         .array();
@@ -70,7 +70,7 @@ describe("ColorConverter", () => {
       [0, 0, 255, 140, 200, 240, 33],
       [255, 255, 0, 50, 150, 60, 61],
       [128, 128, 128, 100, 200, 0, 0],
-    ])("should convert RGBWW to Color", (r, g, b, cw, ww, h, s) => {
+    ])("should convert RGBWW to Color", (r: number, g: number, b: number, cw: number, ww: number, h: number, s: number) => {
       const [resultH, resultS] = ColorConverter.fromRGBWW(r, g, b, cw, ww)
         .hsv()
         .array();
@@ -86,7 +86,7 @@ describe("ColorConverter", () => {
       [0, 0, 255, 240, 100],
       [255, 255, 0, 60, 100],
       [128, 128, 128, 0, 0],
-    ])("should convert Color to Home Assistant HS", (r, g, b, h, s) => {
+    ])("should convert Color to Home Assistant HS", (r: number, g: number, b: number, h: number, s: number) => {
       const color = Color.rgb(r, g, b);
       const result = ColorConverter.toHomeAssistantHS(color);
       expect(result).toEqual([h, s]);
@@ -100,7 +100,7 @@ describe("ColorConverter", () => {
       [240, 100, 169, 254],
       [60, 100, 42, 254],
       [0, 0, 0, 0],
-    ])("should convert Color to Matter HS", (h, s, mh, ms) => {
+    ])("should convert Color to Matter HS", (h: number, s: number, mh: number, ms: number) => {
       const color = Color.hsv(h, s, 100);
       const result = ColorConverter.toMatterHS(color);
       expect(result).toEqual([mh, ms]);
