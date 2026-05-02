@@ -135,28 +135,15 @@ index 6d9d1676ce188a7391186f29186d028cead66770..effb09788736bd77552ff2b87ad4dd15
 +          return void 0;
 +        };
 +        const asDisplay = (value) => {
-+          const safeStringify = (input) => {
-+            try {
-+              const seen = /* @__PURE__ */ new WeakSet();
-+              const json = JSON.stringify(input, (_key, currentValue) => {
-+                if (typeof currentValue === "bigint") return currentValue.toString();
-+                if (typeof currentValue === "object" && currentValue !== null) {
-+                  if (seen.has(currentValue)) return "[Circular]";
-+                  seen.add(currentValue);
-+                }
-+                return currentValue;
-+              });
-+              return json ?? void 0;
-+            } catch {
-+              return void 0;
-+            }
-+          };
 +          if (value === void 0 || value === null) return "unknown";
 +          if (typeof value === "string") return value;
 +          if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
 +          if (typeof value === "object") {
-+            const json = safeStringify(value);
-+            if (json && json !== "{}") return json;
++            try {
++              const json = JSON.stringify(value);
++              if (json && json !== "{}") return json;
++            } catch {
++            }
 +            const maybeToString = value.toString?.();
 +            if (maybeToString && maybeToString !== "[object Object]") return maybeToString;
 +          }
@@ -179,7 +166,7 @@ index 6d9d1676ce188a7391186f29186d028cead66770..effb09788736bd77552ff2b87ad4dd15
 +        }
 +        const remoteAddressText = asDisplay(remoteAddress);
 +        const exchangeId = viaMatch?.[4] !== void 0 ? `0x${viaMatch[4].toLowerCase()}` : session.exchange?.id !== void 0 ? asHex(session.exchange.id) ?? String(session.exchange.id) : "unknown";
-+        const writeOperation = path.listIndex === null ? "ADD" : path.listIndex === void 0 ? "WRITE" : typeof path.listIndex === "number" ? "REMOVE" : "unknown";
++        const writeOperation = path.listIndex === null ? "ADD" : path.listIndex === void 0 ? "WRITE" : `LIST_INDEX(${path.listIndex})`;
 +        const sameWritePath = this.#lastConcreteWrite !== void 0 && this.#lastConcreteWrite.path.endpointId === path.endpointId && this.#lastConcreteWrite.path.clusterId === path.clusterId && this.#lastConcreteWrite.path.attributeId === path.attributeId;
 +        const rawWritePayload = sameWritePath && this.#lastConcreteWrite ? this.#lastConcreteWrite.data instanceof Uint8Array ? `0x${Array.from(this.#lastConcreteWrite.data, (byte) => byte.toString(16).padStart(2, "0")).join("")}` : asDisplay(this.#lastConcreteWrite.data) : "unknown";
 +        let decodedWritePayload = "unknown";
@@ -212,9 +199,7 @@ index 6d9d1676ce188a7391186f29186d028cead66770..effb09788736bd77552ff2b87ad4dd15
 +          `endpointId=0x${path.endpointId.toString(16)}(${path.endpointId})`,
 +          `endpointName=${endpoint?.name ?? "unknown"}`,
 +          `clusterId=0x${path.clusterId.toString(16)}(${path.clusterId})`,
-+          `clusterName=${clusterName}`,
 +          `attributeId=0x${path.attributeId.toString(16)}(${path.attributeId})`,
-+          `attributeName=${attributeName}`,
 +          `operation=${writeOperation}`,
 +          `valueRaw=${rawWritePayload}`,
 +          `valueDecoded=${decodedWritePayload}`,
@@ -496,28 +481,15 @@ index 730f050ee12e4381f82a2c6c31c700ba25efa022..001461e122c7d637bad5a31e8d8d0c5b
 +          return void 0;
 +        };
 +        const asDisplay = (value) => {
-+          const safeStringify = (input) => {
-+            try {
-+              const seen = /* @__PURE__ */ new WeakSet();
-+              const json = JSON.stringify(input, (_key, currentValue) => {
-+                if (typeof currentValue === "bigint") return currentValue.toString();
-+                if (typeof currentValue === "object" && currentValue !== null) {
-+                  if (seen.has(currentValue)) return "[Circular]";
-+                  seen.add(currentValue);
-+                }
-+                return currentValue;
-+              });
-+              return json ?? void 0;
-+            } catch {
-+              return void 0;
-+            }
-+          };
 +          if (value === void 0 || value === null) return "unknown";
 +          if (typeof value === "string") return value;
 +          if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
 +          if (typeof value === "object") {
-+            const json = safeStringify(value);
-+            if (json && json !== "{}") return json;
++            try {
++              const json = JSON.stringify(value);
++              if (json && json !== "{}") return json;
++            } catch {
++            }
 +            const maybeToString = value.toString?.();
 +            if (maybeToString && maybeToString !== "[object Object]") return maybeToString;
 +          }
@@ -540,7 +512,7 @@ index 730f050ee12e4381f82a2c6c31c700ba25efa022..001461e122c7d637bad5a31e8d8d0c5b
 +        }
 +        const remoteAddressText = asDisplay(remoteAddress);
 +        const exchangeId = viaMatch?.[4] !== void 0 ? `0x${viaMatch[4].toLowerCase()}` : session.exchange?.id !== void 0 ? asHex(session.exchange.id) ?? String(session.exchange.id) : "unknown";
-+        const writeOperation = path.listIndex === null ? "ADD" : path.listIndex === void 0 ? "WRITE" : typeof path.listIndex === "number" ? "REMOVE" : "unknown";
++        const writeOperation = path.listIndex === null ? "ADD" : path.listIndex === void 0 ? "WRITE" : `LIST_INDEX(${path.listIndex})`;
 +        const sameWritePath = this.#lastConcreteWrite !== void 0 && this.#lastConcreteWrite.path.endpointId === path.endpointId && this.#lastConcreteWrite.path.clusterId === path.clusterId && this.#lastConcreteWrite.path.attributeId === path.attributeId;
 +        const rawWritePayload = sameWritePath && this.#lastConcreteWrite ? this.#lastConcreteWrite.data instanceof Uint8Array ? `0x${Array.from(this.#lastConcreteWrite.data, (byte) => byte.toString(16).padStart(2, "0")).join("")}` : asDisplay(this.#lastConcreteWrite.data) : "unknown";
 +        let decodedWritePayload = "unknown";
@@ -573,9 +545,7 @@ index 730f050ee12e4381f82a2c6c31c700ba25efa022..001461e122c7d637bad5a31e8d8d0c5b
 +          `endpointId=0x${path.endpointId.toString(16)}(${path.endpointId})`,
 +          `endpointName=${endpoint?.name ?? "unknown"}`,
 +          `clusterId=0x${path.clusterId.toString(16)}(${path.clusterId})`,
-+          `clusterName=${clusterName}`,
 +          `attributeId=0x${path.attributeId.toString(16)}(${path.attributeId})`,
-+          `attributeName=${attributeName}`,
 +          `operation=${writeOperation}`,
 +          `valueRaw=${rawWritePayload}`,
 +          `valueDecoded=${decodedWritePayload}`,
@@ -989,30 +959,18 @@ index 6f09c5e9c318784972791e7aeeed2252aad70407..54210505acf68bfdb706e638d8a7c466
 +                    return undefined;
 +                };
 +                const asDisplay = (value: unknown): string => {
-+                    const safeStringify = (input: unknown): string | undefined => {
-+                        try {
-+                            const seen = new WeakSet<object>();
-+                            const json = JSON.stringify(input, (_key, currentValue) => {
-+                                if (typeof currentValue === "bigint") return currentValue.toString();
-+                                if (typeof currentValue === "object" && currentValue !== null) {
-+                                    if (seen.has(currentValue)) return "[Circular]";
-+                                    seen.add(currentValue);
-+                                }
-+                                return currentValue;
-+                            });
-+                            return json ?? undefined;
-+                        } catch {
-+                            return undefined;
-+                        }
-+                    };
 +                    if (value === undefined || value === null) return "unknown";
 +                    if (typeof value === "string") return value;
 +                    if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") {
 +                        return String(value);
 +                    }
 +                    if (typeof value === "object") {
-+                        const json = safeStringify(value);
-+                        if (json && json !== "{}") return json;
++                        try {
++                            const json = JSON.stringify(value);
++                            if (json && json !== "{}") return json;
++                        } catch {
++                            // ignore
++                        }
 +                        const maybeToString = (value as { toString?: () => string }).toString?.();
 +                        if (maybeToString && maybeToString !== "[object Object]") return maybeToString;
 +                    }
@@ -1085,9 +1043,7 @@ index 6f09c5e9c318784972791e7aeeed2252aad70407..54210505acf68bfdb706e638d8a7c466
 +                        ? "ADD"
 +                        : path.listIndex === undefined
 +                          ? "WRITE"
-+                          : typeof path.listIndex === "number"
-+                            ? "REMOVE"
-+                            : "unknown";
++                          : `LIST_INDEX(${path.listIndex})`;
 +                const sameWritePath =
 +                    this.#lastConcreteWrite !== undefined &&
 +                    this.#lastConcreteWrite.path.endpointId === path.endpointId &&
@@ -1132,9 +1088,7 @@ index 6f09c5e9c318784972791e7aeeed2252aad70407..54210505acf68bfdb706e638d8a7c466
 +                    `endpointId=0x${path.endpointId.toString(16)}(${path.endpointId})`,
 +                    `endpointName=${endpoint?.name ?? "unknown"}`,
 +                    `clusterId=0x${path.clusterId.toString(16)}(${path.clusterId})`,
-+                    `clusterName=${clusterName}`,
 +                    `attributeId=0x${path.attributeId.toString(16)}(${path.attributeId})`,
-+                    `attributeName=${attributeName}`,
 +                    `operation=${writeOperation}`,
 +                    `valueRaw=${rawWritePayload}`,
 +                    `valueDecoded=${decodedWritePayload}`,
