@@ -37,9 +37,7 @@ export function createBridgeServerConfig(
       hardwareVersion: data.basicInformation.hardwareVersion,
       softwareVersion: data.basicInformation.softwareVersion,
       hardwareVersionString: data.basicInformation.hardwareVersionString,
-      // Keep the root string aligned with the numeric softwareVersion. Aqara
-      // stalls bridge registration when the two diverge (#316).
-      softwareVersionString: String(data.basicInformation.softwareVersion),
+      softwareVersionString: data.basicInformation.softwareVersionString,
       ...(data.countryCode ? { location: data.countryCode } : {}),
     },
     subscriptions: {
