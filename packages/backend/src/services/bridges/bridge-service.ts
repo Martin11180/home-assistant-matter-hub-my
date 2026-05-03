@@ -56,11 +56,12 @@ export class BridgeService extends Service {
       ...bridgeData,
       basicInformation: {
         ...basicInformation,
+        hardwareVersion: this.props.basicInformation.hardwareVersion,
         softwareVersion: this.props.basicInformation.softwareVersion,
         hardwareVersionString:
-          basicInformation.hardwareVersionString ??
           this.props.basicInformation.hardwareVersionString ??
-          String(basicInformation.hardwareVersion),
+          basicInformation.hardwareVersionString ??
+          String(this.props.basicInformation.hardwareVersion),
         softwareVersionString: this.props.basicInformation.softwareVersionString,
       },
     };
