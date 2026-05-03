@@ -1,18 +1,28 @@
 import crypto from "node:crypto";
 import type { BridgeData } from "@home-assistant-matter-hub/common";
+import { NetworkCommissioning } from "@matter/main/clusters";
+import { NetworkCommissioningServer } from "@matter/main/behaviors";
 import { AggregatorEndpoint } from "@matter/main/endpoints";
 import { type Node, ServerNode } from "@matter/main/node";
 import { VendorId } from "@matter/main/types";
 import { trimToLength } from "../trim-to-length.js";
 
+const BridgeRootEndpointType = ServerNode.RootEndpoint.with(
+  NetworkCommissioningServer.withFeatures(
+    NetworkCommissioning.Feature.EthernetNetworkInterface,
+  ),
+);
+
 export type BridgeServerNodeConfig =
-  Node.Configuration<ServerNode.RootEndpoint>;
+  Node.Configuration<typeof BridgeRootEndpointType>;
 
 export function createBridgeServerConfig(
   data: BridgeData,
 ): BridgeServerNodeConfig {
+  const networkId = new Uint8Array(32);
+
   return {
-    type: ServerNode.RootEndpoint,
+    type: BridgeRootEndpointType,
     id: data.id,
     network: {
       port: data.port,
@@ -42,6 +52,15 @@ export function createBridgeServerConfig(
     },
     subscriptions: {
       persistenceEnabled: false,
+    },
+    networkCommissioning: {
+      maxNetworks: 1,
+      interfaceEnabled: true,
+      lastConnectErrorValue: 0,
+      lastNetworkId: networkId,
+      lastNetworkingStatus:
+        NetworkCommissioning.NetworkCommissioningStatus.Success,
+      networks: [{ networkId, connected: true }],
     },
   };
 }
