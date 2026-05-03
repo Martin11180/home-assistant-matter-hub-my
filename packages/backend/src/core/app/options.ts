@@ -31,6 +31,25 @@ function resolveAppVersion(): string {
   return "0.0.0-dev";
 }
 
+function normalizeControllerSoftwareVersion(version: string): string {
+  const match = version.match(/(\d+)\.(\d+)\.(\d+)/);
+  if (!match) {
+    return "0.0.0";
+  }
+  return `${match[1]}.${match[2]}.${match[3]}`;
+}
+
+function toMatterSoftwareVersion(version: string): number {
+  const match = version.match(/(\d+)\.(\d+)\.(\d+)/);
+  if (!match) {
+    return 0;
+  }
+  const major = Number(match[1]);
+  const minor = Number(match[2]);
+  const patch = Number(match[3]);
+  return major * 100 + minor * 10 + patch;
+}
+
 export type OptionsProps = ArgumentsCamelCase<StartOptions> & {
   webUiDist: string | undefined;
 };
@@ -100,6 +119,9 @@ export class Options {
   }
 
   get bridgeService(): BridgeServiceProps {
+    const resolvedAppVersion = resolveAppVersion();
+    const softwareVersionString =
+      normalizeControllerSoftwareVersion(resolvedAppVersion);
     return {
       basicInformation: {
         vendorId: VendorId(0xfff1),
@@ -108,8 +130,8 @@ export class Options {
         productName: "MatterHub",
         productLabel: "Home Assistant Matter Hub",
         hardwareVersion: new Date().getFullYear(),
-        softwareVersion: new Date().getFullYear(),
-        softwareVersionString: resolveAppVersion(),
+        softwareVersion: toMatterSoftwareVersion(softwareVersionString),
+        softwareVersionString,
       },
     };
   }
