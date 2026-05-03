@@ -60,7 +60,12 @@ export class BasicInformationServer extends Base {
       hardwareVersion: basicInformation.hardwareVersion,
       softwareVersion: basicInformation.softwareVersion,
       hardwareVersionString: ellipse(64, device?.hw_version),
-      softwareVersionString: ellipse(64, device?.sw_version),
+      // Alexa reads BridgedDeviceBasicInformation for bridged endpoints.
+      // Mirror bridge software version here to avoid "N/A" from device-local
+      // sw_version values that are not controller-friendly.
+      softwareVersionString:
+        basicInformation.softwareVersionString ??
+        String(basicInformation.softwareVersion),
       nodeLabel,
       reachable:
         entity.state?.state != null && entity.state.state !== "unavailable",
