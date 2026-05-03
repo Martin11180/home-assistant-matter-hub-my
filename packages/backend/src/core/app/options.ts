@@ -107,7 +107,7 @@ export class Options {
         productId: 0x8000,
         productName: "MatterHub",
         productLabel: "Home Assistant Matter Hub",
-        hardwareVersion: new Date().getFullYear(),
+        hardwareVersion: 1,
         softwareVersion: 210,
         softwareVersionString: "2.1.0",
       },
